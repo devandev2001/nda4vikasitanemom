@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "public/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "server.js",
       "use": "@vercel/node",
       "config": {
@@ -10,6 +14,10 @@
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "server.js" }
+    { "src": "/css/(.*)",    "dest": "/public/css/$1" },
+    { "src": "/js/(.*)",     "dest": "/public/js/$1" },
+    { "src": "/images/(.*)", "dest": "/public/images/$1" },
+    { "src": "/admin/login.html", "dest": "/public/admin/login.html" },
+    { "src": "/(.*)",        "dest": "server.js" }
   ]
 }
