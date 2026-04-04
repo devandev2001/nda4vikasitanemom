@@ -149,27 +149,62 @@ document.querySelectorAll('.mobile-menu a').forEach(a =>
 );
 
 /* ─────────────────────────────────────────────────────────
-   Inline PDF Viewer — iframe-based (scrollable, mobile-friendly)
+   Inline PDF Viewer — native <object> embed (fastest load)
    ───────────────────────────────────────────────────────── */
 
 window.loadInlinePdf = function (url, label) {
   const viewer  = document.getElementById('manifestoViewer');
-  const frame   = document.getElementById('manifestoFrame');
+  const wrap    = document.getElementById('manifestoFrameWrap');
   const titleEl = document.getElementById('manifestoBarTitle');
   const dlBtn   = document.getElementById('manifestoDlBtn');
-  if (!viewer || !frame) return;
+  if (!viewer || !wrap) return;
 
   viewer.style.display = 'block';
   if (titleEl) titleEl.textContent = label || '';
   if (dlBtn)   { dlBtn.href = url; dlBtn.setAttribute('download', label || 'manifesto.pdf'); }
 
-  // Use Google Docs Viewer to embed PDF — avoids cross-origin iframe block in Chrome
-  var viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(url);
-  frame.src = viewerUrl;
+  // Show loading spinner immediately
+  wrap.innerHTML =
+    '<div class="pdf-loading">' +
+      '<div class="pdf-spinner"></div>' +
+      '<span>Loading PDF…</span>' +
+    '</div>';
+
+  // Use <object> — direct native browser render, no round-trip through Google
+  // Falls back to download link for browsers that can't inline PDFs (rare mobile)
+  const obj = document.createElement('object');
+  obj.data  = url + '#toolbar=0&navpanes=0&scrollbar=1&view=FitH';
+  obj.type  = 'application/pdf';
+  obj.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+
+  // Fallback inside <object> for browsers without native PDF support
+  obj.innerHTML =
+    '<div class="pdf-fallback">' +
+      '<i class="fa fa-file-pdf" style="font-size:2.5rem;color:#FFB700;margin-bottom:12px;"></i>' +
+      '<p>Your browser cannot display this PDF inline.</p>' +
+      '<a href="' + url + '" target="_blank" class="manifesto-dl-btn" style="margin-top:10px;">' +
+        '<i class="fa fa-download"></i> Open / Download PDF' +
+      '</a>' +
+    '</div>';
+
+  // Replace spinner once object loads
+  obj.addEventListener('load', function() {
+    const spinner = wrap.querySelector('.pdf-loading');
+    if (spinner) spinner.remove();
+  });
+
+  // Also clear spinner after 1s max regardless (object.load fires inconsistently)
+  setTimeout(function() {
+    const spinner = wrap.querySelector('.pdf-loading');
+    if (spinner) spinner.remove();
+  }, 1000);
+
+  wrap.innerHTML = '';
+  wrap.appendChild(obj);
 
   // Highlight active tab
   document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.remove('active'));
-  const tab = document.querySelector(`.pdf-tab-btn[data-url="${url}"]`);
+  const tab = document.querySelector('.pdf-tab-btn[data-url="' + url + '"]');
   if (tab) tab.classList.add('active');
 };
 

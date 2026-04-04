@@ -479,6 +479,30 @@ img { max-width: 100%; display: block; }
   letter-spacing: 0.02em;
 }
 
+/* PDF loading spinner */
+.pdf-loading {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; gap: 14px;
+  color: #6b8ab5; font-size: 0.9rem;
+}
+.pdf-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,183,0,0.15);
+  border-top-color: #FFB700;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Fallback for browsers without native PDF support */
+.pdf-fallback {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; padding: 32px; text-align: center;
+  color: #aaa; gap: 6px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   /* ── Header ── */
