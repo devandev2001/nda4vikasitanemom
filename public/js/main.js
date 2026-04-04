@@ -155,7 +155,7 @@ document.querySelectorAll('.mobile-menu a').forEach(a =>
 
 var _pdfDoc      = null;
 var _pdfUrl      = null;
-var _pdfZoom     = 1.8;   // default zoom — readable text on mobile (1.0 = fit-width)
+var _pdfZoom     = -1;    // -1 = fit-width (default on all screens)
 var _fitZoom     = 1.0;   // calculated fit-width zoom, stored after first page
 var _renderTimer = null;
 
@@ -230,9 +230,8 @@ window.loadInlinePdf = function (url, label) {
   var tab = document.querySelector('.pdf-tab-btn[data-url="' + url + '"]');
   if (tab) tab.classList.add('active');
 
-  // Set default zoom: on mobile use 1.8× (readable), on desktop use fit-width (-1)
-  var isMobile = window.innerWidth < 768;
-  _pdfZoom = isMobile ? 1.8 : -1;
+  // Always default to fit-width on all screen sizes
+  _pdfZoom = -1;
 
   if (_pdfUrl === url && _pdfDoc) {
     _renderAllPages(_pdfDoc, wrap);
