@@ -1,428 +1,436 @@
 /* =========================================================
-   VIKASITA NEMOM – Admin Panel JS
+   VIKASITA NEMOM – Admin Panel JS  (complete rewrite)
    ========================================================= */
 
-// ── Firebase config (client-side — safe to expose) ──
+// ── Firebase JS SDK (direct large-file uploads) ──────────────
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js';
 
 const firebaseApp = initializeApp({
-  apiKey:            "AIzaSyAEdDwXotDoLyJNNXyYQ4y8yY1jGxkJCzs",
-  authDomain:        "nda4vikasitanemom.firebaseapp.com",
-  projectId:         "nda4vikasitanemom",
-  storageBucket:     "nda4vikasitanemom.firebasestorage.app",
-  messagingSenderId: "851294523572",
-  appId:             "1:851294523572:web:3dc9001738c2d415a107e1"
+  apiKey:            'AIzaSyAEdDwXotDoLyJNNXyYQ4y8yY1jGxkJCzs',
+  authDomain:        'nda4vikasitanemom.firebaseapp.com',
+  projectId:         'nda4vikasitanemom',
+  storageBucket:     'nda4vikasitanemom.firebasestorage.app',
+  messagingSenderId: '851294523572',
+  appId:             '1:851294523572:web:3dc9001738c2d415a107e1'
 });
-const storage = getStorage(firebaseApp);
+const fbStorage = getStorage(firebaseApp);
 
-// ── Upload large file directly to Firebase Storage from browser ──
-function uploadToFirebaseDirect(file, folder, progressFillId, progressTextId, progressWrapId) {
-  return new Promise((resolve, reject) => {
-    const wrap = progressWrapId ? document.getElementById(progressWrapId) : null;
-    const fill = progressFillId ? document.getElementById(progressFillId) : null;
-    const text = progressTextId ? document.getElementById(progressTextId) : null;
-    if (wrap) wrap.style.display = 'block';
-
-    const ext      = file.name.split('.').pop().toLowerCase();
-    const filename = `${folder}/${Date.now()}-${Math.round(Math.random()*1e6)}.${ext}`;
-    const storageRef = ref(storage, filename);
-    const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
-
-    task.on('state_changed',
-      (snap) => {
-        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-        if (fill) fill.style.width = pct + '%';
-        if (text) text.textContent = `Uploading… ${pct}%`;
-      },
-      (err) => {
-        if (wrap) wrap.style.display = 'none';
-        reject({ message: err.message });
-      },
-      async () => {
-        if (wrap) wrap.style.display = 'none';
-        const url = await getDownloadURL(task.snapshot.ref);
-        resolve(url);
-      }
-    );
-  });
-}
-
-// ── Tell server to save the Firebase URL to Firestore ──
-async function saveUrlToServer(endpoint, fieldName, url) {
-  const res = await authFetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, fieldName })
-  });
-  return res.json();
-}
-
-// ── Toast Notification ──
-function showToast(message, type = 'success') {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  const icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', warning: 'fa-triangle-exclamation' };
-  toast.innerHTML = `<i class="fa ${icons[type] || 'fa-circle-info'}" style="color:${type==='success'?'#22c55e':type==='error'?'#ef4444':'#FFB700'}"></i> ${message}`;
-  container.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(40px)'; setTimeout(() => toast.remove(), 400); }, 3500);
-}
-
-// ── Sidebar nav active ──
-document.querySelectorAll('.nav-link[data-section]').forEach(link => {
-  link.addEventListener('click', (e) => {
-    e.preventDefault();
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    link.classList.add('active');
-    const target = document.getElementById(link.dataset.section);
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-});
-
-// ── File input display helpers ──
-function wireFileInput(inputId, fileNameId, dropZoneId) {
-  const input = document.getElementById(inputId);
-  const nameEl = document.getElementById(fileNameId);
-  const zone = document.getElementById(dropZoneId);
-  if (!input) return;
-  input.addEventListener('change', () => {
-    if (input.files[0]) nameEl.textContent = input.files[0].name;
-  });
-  zone?.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-  zone?.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-  zone?.addEventListener('drop', e => {
-    e.preventDefault(); zone.classList.remove('dragover');
-    if (e.dataTransfer.files[0]) {
-      input.files = e.dataTransfer.files;
-      nameEl.textContent = e.dataTransfer.files[0].name;
-    }
-  });
-}
-wireFileInput('videoFileInput', 'videoFileName', 'videoDropZone');
-wireFileInput('audioFileInput', 'audioFileName', 'audioDropZone');
-wireFileInput('logoFileInput', 'logoFileName', 'logoDropZone');
-wireFileInput('pdfFileInput', 'pdfFileName', 'pdfDropZone');
-
-// ── Authenticated fetch helper ──
-function getAdminToken() {
+// ── JWT helpers ───────────────────────────────────────────────
+function getToken() {
   return localStorage.getItem('adminToken') || '';
 }
 
-async function authFetch(url, options = {}) {
-  const token = getAdminToken();
+async function authFetch(url, opts = {}) {
   const res = await fetch(url, {
-    ...options,
+    ...opts,
     headers: {
-      'Authorization': 'Bearer ' + token,
-      ...(options.headers || {})
+      'Authorization': 'Bearer ' + getToken(),
+      ...(opts.headers || {})
     }
   });
   if (res.status === 401) {
     localStorage.removeItem('adminToken');
     window.location.href = '/admin/login.html';
-    throw new Error('Session expired. Please login again.');
+    throw new Error('Session expired');
   }
   return res;
 }
 
-// ── XHR upload with progress ──
-function uploadWithProgress(url, formData, progressFillId, progressTextId, progressWrapId) {
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  const icon  = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation';
+  const color = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#FFB700';
+  t.innerHTML = '<i class="fa ' + icon + '" style="color:' + color + '"></i> ' + msg;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0'; t.style.transform = 'translateX(40px)';
+    setTimeout(() => t.remove(), 400);
+  }, 3500);
+}
+
+// ── Set field value safely ────────────────────────────────────
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if (el && val != null) el.value = val;
+}
+
+// ── Sidebar nav ───────────────────────────────────────────────
+document.querySelectorAll('.nav-link[data-section]').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+    document.getElementById(link.dataset.section)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// ── Wire file drop zones ──────────────────────────────────────
+function wireFile(inputId, nameId, zoneId) {
+  const input  = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+  const zone   = document.getElementById(zoneId);
+  if (!input) return;
+  input.addEventListener('change', () => {
+    if (input.files[0]) nameEl.textContent = input.files[0].name;
+  });
+  zone?.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone?.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone?.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) {
+      const dt = new DataTransfer();
+      dt.items.add(e.dataTransfer.files[0]);
+      input.files = dt.files;
+      nameEl.textContent = e.dataTransfer.files[0].name;
+    }
+  });
+}
+wireFile('videoFileInput', 'videoFileName', 'videoDropZone');
+wireFile('audioFileInput', 'audioFileName', 'audioDropZone');
+wireFile('logoFileInput',  'logoFileName',  'logoDropZone');
+wireFile('pdfFileInput',   'pdfFileName',   'pdfDropZone');
+
+// ── XHR upload with progress (logo + PDF through server) ─────
+function xhrUpload(url, formData, fillId, textId, wrapId) {
   return new Promise((resolve, reject) => {
-    const wrap = progressWrapId ? document.getElementById(progressWrapId) : null;
-    const fill = progressFillId ? document.getElementById(progressFillId) : null;
-    const text = progressTextId ? document.getElementById(progressTextId) : null;
+    const wrap = wrapId ? document.getElementById(wrapId) : null;
+    const fill = fillId ? document.getElementById(fillId) : null;
+    const text = textId ? document.getElementById(textId) : null;
     if (wrap) wrap.style.display = 'block';
+    if (fill) fill.style.width = '0%';
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    xhr.setRequestHeader('Authorization', 'Bearer ' + getAdminToken());
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const pct = Math.round((e.loaded / e.total) * 100);
-        if (fill) fill.style.width = pct + '%';
-        if (text) text.textContent = `Uploading… ${pct}%`;
-      }
-    });
+    xhr.setRequestHeader('Authorization', 'Bearer ' + getToken());
 
+    xhr.upload.addEventListener('progress', e => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round((e.loaded / e.total) * 100);
+      if (fill) fill.style.width = pct + '%';
+      if (text) text.textContent = 'Uploading... ' + pct + '%';
+    });
     xhr.addEventListener('load', () => {
       if (wrap) wrap.style.display = 'none';
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try { resolve(JSON.parse(xhr.responseText)); }
-        catch { resolve({}); }
-      } else {
-        try { reject(JSON.parse(xhr.responseText)); }
-        catch { reject({ message: 'Upload failed' }); }
-      }
+      try {
+        const d = JSON.parse(xhr.responseText || '{}');
+        xhr.status >= 200 && xhr.status < 300 ? resolve(d) : reject(d);
+      } catch { reject({ message: 'Server error' }); }
     });
-    xhr.addEventListener('error', () => { if (wrap) wrap.style.display = 'none'; reject({ message: 'Network error' }); });
+    xhr.addEventListener('error', () => {
+      if (wrap) wrap.style.display = 'none';
+      reject({ message: 'Network error — check your connection' });
+    });
     xhr.send(formData);
   });
 }
 
-// ── Load existing content into forms ──
+// ── Firebase direct upload (video + audio — bypasses Vercel) ─
+function firebaseUpload(file, folder, fillId, textId, wrapId) {
+  return new Promise((resolve, reject) => {
+    const wrap = wrapId ? document.getElementById(wrapId) : null;
+    const fill = fillId ? document.getElementById(fillId) : null;
+    const text = textId ? document.getElementById(textId) : null;
+    if (wrap) wrap.style.display = 'block';
+    if (fill) fill.style.width = '0%';
+
+    const ext      = file.name.split('.').pop().toLowerCase();
+    const filePath = folder + '/' + Date.now() + '-' + Math.round(Math.random() * 1e6) + '.' + ext;
+    const task     = uploadBytesResumable(ref(fbStorage, filePath), file, { contentType: file.type });
+
+    task.on('state_changed',
+      snap => {
+        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+        if (fill) fill.style.width = pct + '%';
+        if (text) text.textContent = 'Uploading... ' + pct + '%';
+      },
+      err => {
+        if (wrap) wrap.style.display = 'none';
+        reject({ message: err.message });
+      },
+      () => {
+        if (wrap) wrap.style.display = 'none';
+        // Build permanent public URL (not the expiring token URL)
+        const bucket = 'nda4vikasitanemom.firebasestorage.app';
+        const encoded = filePath.split('/').map(encodeURIComponent).join('/');
+        resolve('https://storage.googleapis.com/' + bucket + '/' + encoded);
+      }
+    );
+  });
+}
+
+// ── Load all content into forms ───────────────────────────────
 async function loadContent() {
   try {
-    const res = await fetch('/api/content');
+    const res  = await fetch('/api/content');
     const data = await res.json();
 
-    // Texts
-    setVal('bannerHeadline', data.bannerHeadline);
-    setVal('bannerSubtext', data.bannerSubtext);
-    setVal('manifestoTitle', data.manifestoTitle);
-    setVal('manifestoSub', data.manifestoSub);
+    setVal('bannerHeadline',   data.bannerHeadline);
+    setVal('bannerSubtext',    data.bannerSubtext);
+    setVal('manifestoTitle',   data.manifestoTitle);
+    setVal('manifestoSub',     data.manifestoSub);
     setVal('manifestoCtaText', data.manifestoCtaText);
-    setVal('aboutTitle', data.aboutTitle);
-    setVal('aboutText', data.aboutText);
-    setVal('footerAboutText', data.footerAboutText);
+    setVal('aboutTitle',       data.aboutTitle);
+    setVal('aboutText',        data.aboutText);
+    setVal('footerAboutText',  data.footerAboutText);
 
-    // Social
     if (data.socialLinks) {
-      setVal('socialFacebook', data.socialLinks.facebook);
-      setVal('socialTwitter', data.socialLinks.twitter);
-      setVal('socialYoutube', data.socialLinks.youtube);
+      setVal('socialFacebook',  data.socialLinks.facebook);
+      setVal('socialTwitter',   data.socialLinks.twitter);
+      setVal('socialYoutube',   data.socialLinks.youtube);
       setVal('socialInstagram', data.socialLinks.instagram);
     }
 
-    // Current video
+    // Video preview
+    const vWrap = document.getElementById('currentVideoWrap');
+    const vEl   = document.getElementById('currentVideoPreview');
+    const vName = document.getElementById('currentVideoName');
     if (data.bannerVideoUrl) {
-      const wrap = document.getElementById('currentVideoWrap');
-      const vid = document.getElementById('currentVideoPreview');
-      const name = document.getElementById('currentVideoName');
-      if (wrap) wrap.style.display = 'block';
-      if (vid) vid.src = data.bannerVideoUrl;
-      if (name) name.textContent = data.bannerVideoUrl.split('/').pop();
+      if (vWrap) vWrap.style.display = 'block';
+      if (vEl)  vEl.src = data.bannerVideoUrl;
+      if (vName) vName.textContent = decodeURIComponent(data.bannerVideoUrl.split('/').pop());
+    } else {
+      if (vWrap) vWrap.style.display = 'none';
     }
 
-    // Current audio
+    // Audio preview
+    const aWrap = document.getElementById('currentAudioWrap');
+    const aEl   = document.getElementById('currentAudioPreview');
+    const aName = document.getElementById('currentAudioName');
     if (data.bgAudioUrl) {
-      const wrap = document.getElementById('currentAudioWrap');
-      const aud  = document.getElementById('currentAudioPreview');
-      const name = document.getElementById('currentAudioName');
-      if (wrap) wrap.style.display = 'block';
-      if (aud)  aud.src = data.bgAudioUrl;
-      if (name) name.textContent = data.bgAudioUrl.split('/').pop();
+      if (aWrap) aWrap.style.display = 'block';
+      if (aEl)  aEl.src = data.bgAudioUrl;
+      if (aName) aName.textContent = decodeURIComponent(data.bgAudioUrl.split('/').pop());
+    } else {
+      if (aWrap) aWrap.style.display = 'none';
     }
 
-    // Current logo
+    // Logo preview
+    const lWrap = document.getElementById('currentLogoWrap');
+    const lEl   = document.getElementById('currentLogoPreview');
     if (data.logoUrl) {
-      const wrap = document.getElementById('currentLogoWrap');
-      const img = document.getElementById('currentLogoPreview');
-      if (wrap) wrap.style.display = 'block';
-      if (img) img.src = data.logoUrl;
+      if (lWrap) lWrap.style.display = 'block';
+      if (lEl)  lEl.src = data.logoUrl;
     }
 
-    // PDFs
-    renderPdfList(data.pdfs || []);
+    renderPdfs(data.pdfs || []);
+
   } catch (e) {
-    console.error('Failed to load content', e);
+    console.error('loadContent error:', e);
+    toast('Failed to load content from server', 'error');
   }
 }
 
-function setVal(id, val) {
-  const el = document.getElementById(id);
-  if (el && val !== undefined && val !== null) el.value = val;
-}
-
-function renderPdfList(pdfs) {
+// ── Render PDF list ───────────────────────────────────────────
+function renderPdfs(pdfs) {
   const list = document.getElementById('pdfList');
   if (!list) return;
   if (!pdfs.length) {
-    list.innerHTML = '<li style="color:#64748b;font-size:0.9rem;">No PDFs uploaded yet.</li>';
+    list.innerHTML = '<li style="color:#64748b;font-size:0.9rem;padding:8px 0;">No PDFs uploaded yet.</li>';
     return;
   }
   list.innerHTML = '';
   pdfs.forEach((pdf, idx) => {
     const li = document.createElement('li');
     li.className = 'pdf-list-item';
-    li.innerHTML = `
-      <span class="pdf-icon"><i class="fa fa-file-pdf"></i></span>
-      <div class="pdf-info">
-        <strong>${pdf.label}</strong>
-        <span>${pdf.url.split('/').pop()}</span>
-      </div>
-      <div class="pdf-actions">
-        <a href="${pdf.url}" target="_blank" class="btn btn-ghost btn-sm"><i class="fa fa-eye"></i></a>
-        <button class="btn btn-danger btn-sm" data-idx="${idx}" onclick="deletePdf(${idx})"><i class="fa fa-trash"></i></button>
-      </div>`;
+    li.innerHTML =
+      '<span class="pdf-icon"><i class="fa fa-file-pdf"></i></span>' +
+      '<div class="pdf-info"><strong>' + pdf.label + '</strong><span>' + decodeURIComponent(pdf.url.split('/').pop()) + '</span></div>' +
+      '<div class="pdf-actions">' +
+        '<a href="' + pdf.url + '" target="_blank" class="btn btn-ghost btn-sm" title="Preview"><i class="fa fa-eye"></i></a>' +
+        '<button class="btn btn-danger btn-sm" onclick="deletePdf(' + idx + ')" title="Delete"><i class="fa fa-trash"></i></button>' +
+      '</div>';
     list.appendChild(li);
   });
 }
 
-// ── Text save ──
-document.getElementById('textsForm')?.addEventListener('submit', async (e) => {
+// ─────────────────────────────────────────────────────────────
+// FORM SUBMIT HANDLERS
+// ─────────────────────────────────────────────────────────────
+
+// ── Save text content ─────────────────────────────────────────
+document.getElementById('textsForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const btn = e.submitter;
-  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving…';
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
   try {
-    const res = await authFetch('/api/content/texts', {
+    const res  = await authFetch('/api/content/texts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        bannerHeadline: document.getElementById('bannerHeadline').value,
-        bannerSubtext:  document.getElementById('bannerSubtext').value,
-        manifestoTitle: document.getElementById('manifestoTitle').value,
-        manifestoSub:   document.getElementById('manifestoSub').value,
+        bannerHeadline:   document.getElementById('bannerHeadline').value,
+        bannerSubtext:    document.getElementById('bannerSubtext').value,
+        manifestoTitle:   document.getElementById('manifestoTitle').value,
+        manifestoSub:     document.getElementById('manifestoSub').value,
         manifestoCtaText: document.getElementById('manifestoCtaText').value,
-        aboutTitle:     document.getElementById('aboutTitle').value,
-        aboutText:      document.getElementById('aboutText').value,
-        footerAboutText: document.getElementById('footerAboutText').value,
+        aboutTitle:       document.getElementById('aboutTitle').value,
+        aboutText:        document.getElementById('aboutText').value,
+        footerAboutText:  document.getElementById('footerAboutText').value,
       })
     });
-    const data = await res.json();
-    if (data.ok) showToast('Text content saved successfully!');
-    else showToast(data.message || 'Save failed', 'error');
-  } catch { showToast('Save failed', 'error'); }
+    const d = await res.json();
+    d.ok ? toast('Text content saved!') : toast(d.message || 'Save failed', 'error');
+  } catch (err) { if (err.message !== 'Session expired') toast('Save failed: ' + err.message, 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-floppy-disk"></i> Save All Text';
 });
 
-// ── Social save ──
-document.getElementById('socialForm')?.addEventListener('submit', async (e) => {
+// ── Save social links ─────────────────────────────────────────
+document.getElementById('socialForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const btn = e.submitter;
-  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving…';
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
   try {
-    const res = await authFetch('/api/content/social', {
+    const res  = await authFetch('/api/content/social', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        facebook: document.getElementById('socialFacebook').value,
-        twitter:  document.getElementById('socialTwitter').value,
-        youtube:  document.getElementById('socialYoutube').value,
+        facebook:  document.getElementById('socialFacebook').value,
+        twitter:   document.getElementById('socialTwitter').value,
+        youtube:   document.getElementById('socialYoutube').value,
         instagram: document.getElementById('socialInstagram').value,
       })
     });
-    const data = await res.json();
-    if (data.ok) showToast('Social links saved!');
-    else showToast(data.message || 'Save failed', 'error');
-  } catch { showToast('Save failed', 'error'); }
+    const d = await res.json();
+    d.ok ? toast('Social links saved!') : toast(d.message || 'Save failed', 'error');
+  } catch (err) { if (err.message !== 'Session expired') toast('Save failed: ' + err.message, 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-floppy-disk"></i> Save Social Links';
 });
 
-// ── Video upload (direct to Firebase — no 50MB Vercel limit) ──
-document.getElementById('videoUploadForm')?.addEventListener('submit', async (e) => {
+// ── Upload video ──────────────────────────────────────────────
+document.getElementById('videoUploadForm')?.addEventListener('submit', async e => {
   e.preventDefault();
-  e.stopPropagation();
   const input = document.getElementById('videoFileInput');
-  if (!input.files[0]) { showToast('Please select a video file', 'warning'); return; }
+  if (!input.files[0]) { toast('Please select a video file', 'warning'); return; }
+  if (input.files[0].size > 500 * 1024 * 1024) { toast('Video must be under 500MB', 'warning'); return; }
+
   const btn = e.submitter;
-  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading…';
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
   try {
-    const url = await uploadToFirebaseDirect(input.files[0], 'videos', 'videoProgressFill', 'videoProgressText', 'videoProgress');
-    const data = await saveUrlToServer('/api/save/video', 'bannerVideoUrl', url);
-    if (data.ok) {
-      showToast('Video uploaded successfully!');
-      const wrap = document.getElementById('currentVideoWrap');
-      const vid  = document.getElementById('currentVideoPreview');
-      const name = document.getElementById('currentVideoName');
-      if (wrap) wrap.style.display = 'block';
-      if (vid)  { vid.src = url; vid.load(); }
-      if (name) name.textContent = input.files[0].name;
+    const url  = await firebaseUpload(input.files[0], 'videos', 'videoProgressFill', 'videoProgressText', 'videoProgress');
+    const res  = await authFetch('/api/save/video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      toast('Video uploaded successfully!');
+      document.getElementById('currentVideoWrap').style.display = 'block';
+      const v = document.getElementById('currentVideoPreview');
+      v.src = url; v.load();
+      document.getElementById('currentVideoName').textContent = input.files[0].name;
       input.value = ''; document.getElementById('videoFileName').textContent = '';
-    } else { showToast(data.message || 'Save failed', 'error'); }
-  } catch (err) { showToast(err.message || 'Upload failed', 'error'); }
+    } else { toast(d.message || 'Failed to save video', 'error'); }
+  } catch (err) { if (err.message !== 'Session expired') toast('Upload failed: ' + err.message, 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload Video';
 });
 
-// ── Audio upload (direct to Firebase — no size limit) ──
-document.getElementById('audioUploadForm')?.addEventListener('submit', async (e) => {
+// ── Upload audio ──────────────────────────────────────────────
+document.getElementById('audioUploadForm')?.addEventListener('submit', async e => {
   e.preventDefault();
-  e.stopPropagation();
   const input = document.getElementById('audioFileInput');
-  if (!input.files[0]) { showToast('Please select an audio file', 'warning'); return; }
+  if (!input.files[0]) { toast('Please select an audio file', 'warning'); return; }
+  if (input.files[0].size > 50 * 1024 * 1024) { toast('Audio must be under 50MB', 'warning'); return; }
+
   const btn = e.submitter;
-  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading…';
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
   try {
-    const url = await uploadToFirebaseDirect(input.files[0], 'audio', 'audioProgressFill', 'audioProgressText', 'audioProgress');
-    const data = await saveUrlToServer('/api/save/audio', 'bgAudioUrl', url);
-    if (data.ok) {
-      showToast('Background audio uploaded!');
-      const wrap = document.getElementById('currentAudioWrap');
-      const aud  = document.getElementById('currentAudioPreview');
-      const name = document.getElementById('currentAudioName');
-      if (wrap) wrap.style.display = 'block';
-      if (aud)  { aud.src = url; aud.load(); }
-      if (name) name.textContent = input.files[0].name;
+    const url  = await firebaseUpload(input.files[0], 'audio', 'audioProgressFill', 'audioProgressText', 'audioProgress');
+    const res  = await authFetch('/api/save/audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      toast('Background audio uploaded!');
+      document.getElementById('currentAudioWrap').style.display = 'block';
+      const a = document.getElementById('currentAudioPreview');
+      a.src = url; a.load();
+      document.getElementById('currentAudioName').textContent = input.files[0].name;
       input.value = ''; document.getElementById('audioFileName').textContent = '';
-    } else { showToast(data.message || 'Save failed', 'error'); }
-  } catch (err) { showToast(err.message || 'Upload failed', 'error'); }
+    } else { toast(d.message || 'Failed to save audio', 'error'); }
+  } catch (err) { if (err.message !== 'Session expired') toast('Upload failed: ' + err.message, 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload Audio';
 });
 
-// ── Logo upload ──
-document.getElementById('logoUploadForm')?.addEventListener('submit', async (e) => {
+// ── Upload logo ───────────────────────────────────────────────
+document.getElementById('logoUploadForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const input = document.getElementById('logoFileInput');
-  if (!input.files[0]) { showToast('Please select a logo file', 'warning'); return; }
+  if (!input.files[0]) { toast('Please select a logo file', 'warning'); return; }
+
   const btn = e.submitter;
-  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading…';
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
   const fd = new FormData();
   fd.append('logo', input.files[0]);
   try {
-    const data = await uploadWithProgress('/api/upload/logo', fd, null, null, null);
-    if (data.ok) {
-      showToast('Logo uploaded!');
-      const wrap = document.getElementById('currentLogoWrap');
-      const img = document.getElementById('currentLogoPreview');
-      if (wrap) wrap.style.display = 'block';
-      if (img) img.src = data.url + '?t=' + Date.now();
+    const d = await xhrUpload('/api/upload/logo', fd, null, null, null);
+    if (d.ok) {
+      toast('Logo uploaded!');
+      document.getElementById('currentLogoWrap').style.display = 'block';
+      document.getElementById('currentLogoPreview').src = d.url + '?t=' + Date.now();
       input.value = ''; document.getElementById('logoFileName').textContent = '';
-    } else { showToast(data.message || 'Upload failed', 'error'); }
-  } catch (err) { showToast(err.message || 'Upload failed', 'error'); }
+    } else { toast(d.message || 'Upload failed', 'error'); }
+  } catch (err) { toast(err.message || 'Upload failed', 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload Logo';
 });
 
-// ── PDF upload ──
-document.getElementById('pdfUploadForm')?.addEventListener('submit', async (e) => {
+// ── Upload PDF ────────────────────────────────────────────────
+document.getElementById('pdfUploadForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const input = document.getElementById('pdfFileInput');
   const label = document.getElementById('pdfLabel').value.trim();
-  if (!input.files[0]) { showToast('Please select a PDF file', 'warning'); return; }
-  if (!label) { showToast('Please enter a label for this PDF', 'warning'); return; }
+  if (!input.files[0]) { toast('Please select a PDF file', 'warning'); return; }
+  if (!label)          { toast('Please enter a label for this PDF', 'warning'); return; }
+
   const btn = e.submitter;
-  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading…';
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
   const fd = new FormData();
   fd.append('pdf', input.files[0]);
   fd.append('label', label);
   try {
-    const data = await uploadWithProgress('/api/upload/pdf', fd, 'pdfProgressFill', 'pdfProgressText', 'pdfProgress');
-    if (data.ok) {
-      showToast('PDF uploaded!');
-      input.value = ''; document.getElementById('pdfFileName').textContent = '';
-      document.getElementById('pdfLabel').value = '';
-      await loadContent(); // refresh list
-    } else { showToast(data.message || 'Upload failed', 'error'); }
-  } catch (err) { showToast(err.message || 'Upload failed', 'error'); }
+    const d = await xhrUpload('/api/upload/pdf', fd, 'pdfProgressFill', 'pdfProgressText', 'pdfProgress');
+    if (d.ok) {
+      toast('PDF uploaded!');
+      input.value = ''; document.getElementById('pdfFileName').textContent = ''; document.getElementById('pdfLabel').value = '';
+      await loadContent();
+    } else { toast(d.message || 'Upload failed', 'error'); }
+  } catch (err) { toast(err.message || 'Upload failed', 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload PDF';
 });
 
-// ── Delete PDF ──
+// ── Delete PDF ────────────────────────────────────────────────
 window.deletePdf = async function(idx) {
   if (!confirm('Delete this PDF? This cannot be undone.')) return;
   try {
-    const res = await authFetch(`/api/content/pdf/${idx}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.ok) { showToast('PDF deleted'); await loadContent(); }
-    else showToast(data.message || 'Delete failed', 'error');
-  } catch { showToast('Delete failed', 'error'); }
+    const res  = await authFetch('/api/content/pdf/' + idx, { method: 'DELETE' });
+    const d    = await res.json();
+    if (d.ok) { toast('PDF deleted'); await loadContent(); }
+    else toast(d.message || 'Delete failed', 'error');
+  } catch (err) { if (err.message !== 'Session expired') toast('Delete failed', 'error'); }
 };
 
-// ── Init ──
-// Check authentication first, then load content
+// ─────────────────────────────────────────────────────────────
+// INIT — check auth token, then load all content
+// ─────────────────────────────────────────────────────────────
 (async () => {
-  const token = getAdminToken();
+  const token = getToken();
   if (!token) { window.location.href = '/admin/login.html'; return; }
   try {
-    const res = await fetch('/admin/check', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    const res  = await fetch('/admin/check', { headers: { 'Authorization': 'Bearer ' + token } });
     const data = await res.json();
     if (!data.ok) {
       localStorage.removeItem('adminToken');
       window.location.href = '/admin/login.html';
       return;
     }
-    loadContent();
+    await loadContent();
   } catch {
     window.location.href = '/admin/login.html';
   }
