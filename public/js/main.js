@@ -26,14 +26,26 @@ function applySiteContent(data) {
   setEl('banner-headline', data.bannerHeadline);
   setEl('banner-subtext',  data.bannerSubtext);
 
-  // Banner video — always muted
+  // Banner video — always muted + inline for iOS
   const vid = document.getElementById('bannerVideo');
   const src = document.getElementById('bannerVideoSrc');
   if (vid && src && data.bannerVideoUrl) {
-    vid.muted = true;
-    src.src   = data.bannerVideoUrl;
+    vid.muted        = true;
+    vid.playsInline  = true;
+    vid.setAttribute('playsinline', '');
+    vid.setAttribute('webkit-playsinline', '');
+    src.src = data.bannerVideoUrl;
     vid.load();
-    vid.play().catch(() => {});
+    const playPromise = vid.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // iOS / low-power mode: retry on first user touch
+        document.addEventListener('touchstart', function retryVideo() {
+          vid.play().catch(() => {});
+          document.removeEventListener('touchstart', retryVideo);
+        }, { once: true, passive: true });
+      });
+    }
   }
 
   // Background audio
