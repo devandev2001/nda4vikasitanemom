@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin – Vikasita Nemom</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ Vikasita Nemom</h2>
+      <span>Admin Control Panel</span>
+    </div>
+    <nav class="sidebar-nav">
+      <ul>
+        <li><a href="#section-banner" class="nav-link active" data-section="section-banner"><i class="fa fa-film"></i> Banner Video</a></li>
+        <li><a href="#section-audio" class="nav-link" data-section="section-audio"><i class="fa fa-music"></i> Background Audio</a></li>
+        <li><a href="#section-texts" class="nav-link" data-section="section-texts"><i class="fa fa-pen-nib"></i> Text Content</a></li>
+        <li><a href="#section-logo" class="nav-link" data-section="section-logo"><i class="fa fa-image"></i> Logo</a></li>
+        <li><a href="#section-pdfs" class="nav-link" data-section="section-pdfs"><i class="fa fa-file-pdf"></i> Manifestos / PDFs</a></li>
+        <li><a href="#section-social" class="nav-link" data-section="section-social"><i class="fa fa-share-nodes"></i> Social Links</a></li>
+        <li><a href="/" target="_blank"><i class="fa fa-arrow-up-right-from-square"></i> View Website</a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/admin/logout"><i class="fa fa-right-from-bracket"></i> Logout</a>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+    <div class="topbar">
+      <h1><i class="fa fa-gauge-high" style="margin-right:8px;color:#FFB700;"></i>Dashboard</h1>
+      <span class="topbar-badge">Admin Panel</span>
+    </div>
+
+    <div class="content-area">
+
+      <!-- ── Banner Video ── -->
+      <div class="admin-card" id="section-banner">
+        <div class="admin-card-title"><i class="fa fa-film"></i> Banner Video</div>
+
+        <div id="currentVideoWrap" class="media-preview-wrap" style="display:none;">
+          <p class="media-preview-label">Current Banner Video</p>
+          <div class="media-preview">
+            <video id="currentVideoPreview" controls muted style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid #334155;"></video>
+          </div>
+          <div class="current-file-info" id="currentVideoInfo">
+            <i class="fa fa-circle-check"></i>
+            <span id="currentVideoName">No video uploaded</span>
+          </div>
+        </div>
+
+        <form id="videoUploadForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Upload New Banner Video (MP4 recommended, max 200MB) — <strong>Video plays silently, audio comes from background music below</strong></label>
+            <div class="file-upload-zone" id="videoDropZone">
+              <input type="file" name="video" id="videoFileInput" accept="video/mp4,video/webm,video/ogg">
+              <div class="upload-icon"><i class="fa fa-video"></i></div>
+              <p>Drag & drop or click to choose a video file</p>
+              <p class="file-name" id="videoFileName"></p>
+            </div>
+            <div class="upload-progress" id="videoProgress">
+              <div class="progress-bar"><div class="progress-fill" id="videoProgressFill"></div></div>
+              <p class="progress-text" id="videoProgressText">Uploading…</p>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-cloud-arrow-up"></i> Upload Video</button>
+        </form>
+      </div>
+
+      <!-- ── Background Audio ── -->
+      <div class="admin-card" id="section-audio">
+        <div class="admin-card-title"><i class="fa fa-music"></i> Background Audio</div>
+        <p style="color:#94a3b8;font-size:0.9rem;margin-bottom:16px;">This audio plays softly in the background on the website. Visitors can toggle it on/off with the music button on the banner.</p>
+
+        <div id="currentAudioWrap" class="media-preview-wrap" style="display:none;">
+          <p class="media-preview-label">Current Background Audio</p>
+          <div class="media-preview" style="padding:12px 0;">
+            <audio id="currentAudioPreview" controls style="width:100%;max-width:500px;"></audio>
+          </div>
+          <div class="current-file-info">
+            <i class="fa fa-circle-check"></i>
+            <span id="currentAudioName">No audio uploaded</span>
+          </div>
+        </div>
+
+        <form id="audioUploadForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Upload Background Audio (MP3 / WAV / OGG, max 30MB)</label>
+            <div class="file-upload-zone" id="audioDropZone">
+              <input type="file" name="audio" id="audioFileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/aac">
+              <div class="upload-icon"><i class="fa fa-music"></i></div>
+              <p>Drag & drop or click to choose an audio file</p>
+              <p class="file-name" id="audioFileName"></p>
+            </div>
+            <div class="upload-progress" id="audioProgress">
+              <div class="progress-bar"><div class="progress-fill" id="audioProgressFill"></div></div>
+              <p class="progress-text" id="audioProgressText">Uploading…</p>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-cloud-arrow-up"></i> Upload Audio</button>
+        </form>
+      </div>
+
+      <!-- ── Text Content ── -->
+      <div class="admin-card" id="section-texts">
+        <div class="admin-card-title"><i class="fa fa-pen-nib"></i> Text Content</div>
+        <form id="textsForm">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+            <div class="form-group">
+              <label>Banner Headline</label>
+              <input type="text" class="form-control" id="bannerHeadline" placeholder="വികസിത നേമം">
+            </div>
+            <div class="form-group">
+              <label>Banner Subtext</label>
+              <input type="text" class="form-control" id="bannerSubtext" placeholder="മാറ്റം തുടങ്ങാം – നേമത്ത് നിന്ന്">
+            </div>
+            <div class="form-group">
+              <label>Manifesto Section Title</label>
+              <input type="text" class="form-control" id="manifestoTitle" placeholder="ഇതാണ് മാറ്റം, ഇതാണ് വികസിത നേമം">
+            </div>
+            <div class="form-group">
+              <label>Manifesto Sub-line</label>
+              <input type="text" class="form-control" id="manifestoSub" placeholder="മാറാത്തത് മാറും. ഇനി നേമം വളരും.">
+            </div>
+            <div class="form-group">
+              <label>Manifesto CTA Text</label>
+              <input type="text" class="form-control" id="manifestoCtaText" placeholder="NDA 2026 മാർഗരേഖ കാണാൻ...">
+            </div>
+            <div class="form-group">
+              <label>About Section Title</label>
+              <input type="text" class="form-control" id="aboutTitle" placeholder="നേമം – ഒരു പ്രതിജ്ഞ">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>About Section Text</label>
+            <textarea class="form-control" id="aboutText" rows="3" placeholder="About paragraph…"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Footer About Text</label>
+            <textarea class="form-control" id="footerAboutText" rows="2" placeholder="Footer about paragraph…"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-floppy-disk"></i> Save All Text</button>
+        </form>
+      </div>
+
+      <!-- ── Logo ── -->
+      <div class="admin-card" id="section-logo">
+        <div class="admin-card-title"><i class="fa fa-image"></i> Logo</div>
+        <div id="currentLogoWrap" class="media-preview-wrap" style="display:none;">
+          <p class="media-preview-label">Current Logo</p>
+          <div class="media-preview">
+            <img id="currentLogoPreview" alt="Current Logo" style="max-height:70px;">
+          </div>
+        </div>
+        <form id="logoUploadForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Upload Logo (SVG or PNG, recommended transparent background)</label>
+            <div class="file-upload-zone" id="logoDropZone">
+              <input type="file" name="logo" id="logoFileInput" accept="image/svg+xml,image/png,image/jpeg,image/webp">
+              <div class="upload-icon"><i class="fa fa-image"></i></div>
+              <p>Drag & drop or click to choose a logo file</p>
+              <p class="file-name" id="logoFileName"></p>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-cloud-arrow-up"></i> Upload Logo</button>
+        </form>
+      </div>
+
+      <!-- ── PDFs ── -->
+      <div class="admin-card" id="section-pdfs">
+        <div class="admin-card-title"><i class="fa fa-file-pdf"></i> Manifestos &amp; PDFs</div>
+
+        <ul class="pdf-list" id="pdfList">
+          <li style="color:#64748b;font-size:0.9rem;">Loading PDFs…</li>
+        </ul>
+
+        <hr style="border-color:#1e3a5f;margin:20px 0;">
+
+        <form id="pdfUploadForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>PDF Label (e.g. "Download Manifesto Malayalam")</label>
+            <input type="text" class="form-control" id="pdfLabel" name="label" placeholder="Download Manifesto Malayalam" required>
+          </div>
+          <div class="form-group">
+            <label>Upload PDF File (max 50MB)</label>
+            <div class="file-upload-zone" id="pdfDropZone">
+              <input type="file" name="pdf" id="pdfFileInput" accept="application/pdf" required>
+              <div class="upload-icon"><i class="fa fa-file-pdf"></i></div>
+              <p>Drag & drop or click to choose a PDF file</p>
+              <p class="file-name" id="pdfFileName"></p>
+            </div>
+            <div class="upload-progress" id="pdfProgress">
+              <div class="progress-bar"><div class="progress-fill" id="pdfProgressFill"></div></div>
+              <p class="progress-text" id="pdfProgressText">Uploading…</p>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-cloud-arrow-up"></i> Upload PDF</button>
+        </form>
+      </div>
+
+      <!-- ── Social Links ── -->
+      <div class="admin-card" id="section-social">
+        <div class="admin-card-title"><i class="fa fa-share-nodes"></i> Social Media Links</div>
+        <form id="socialForm">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+            <div class="form-group">
+              <label><i class="fa-brands fa-facebook" style="color:#1877f2;margin-right:6px;"></i>Facebook URL</label>
+              <input type="url" class="form-control" id="socialFacebook" placeholder="https://facebook.com/...">
+            </div>
+            <div class="form-group">
+              <label><i class="fa-brands fa-x-twitter" style="margin-right:6px;"></i>X (Twitter) URL</label>
+              <input type="url" class="form-control" id="socialTwitter" placeholder="https://twitter.com/...">
+            </div>
+            <div class="form-group">
+              <label><i class="fa-brands fa-youtube" style="color:#ff0000;margin-right:6px;"></i>YouTube URL</label>
+              <input type="url" class="form-control" id="socialYoutube" placeholder="https://youtube.com/...">
+            </div>
+            <div class="form-group">
+              <label><i class="fa-brands fa-instagram" style="color:#e1306c;margin-right:6px;"></i>Instagram URL</label>
+              <input type="url" class="form-control" id="socialInstagram" placeholder="https://instagram.com/...">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-floppy-disk"></i> Save Social Links</button>
+        </form>
+      </div>
+
+    </div><!-- /content-area -->
+  </main>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

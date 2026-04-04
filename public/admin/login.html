@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login – Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="login-wrap">
+  <div class="login-card">
+    <h1>⚡ Admin Login</h1>
+    <p>Vikasita Nemom Control Panel</p>
+    <div class="login-error" id="loginError"></div>
+    <form id="loginForm">
+      <div class="form-group" style="text-align:left;">
+        <label>Username</label>
+        <input type="text" class="form-control" id="loginUser" autocomplete="username" required>
+      </div>
+      <div class="form-group" style="text-align:left;">
+        <label>Password</label>
+        <input type="password" class="form-control" id="loginPass" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">
+        <i class="fa fa-right-to-bracket"></i> Login
+      </button>
+    </form>
+  </div>
+  <script>
+    // If already logged in, skip to dashboard
+    fetch('/admin/check', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json()).then(d => { if (d.ok) window.location.href = '/admin/'; }).catch(() => {});
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('loginError');
+      err.classList.remove('show');
+      const btn = e.submitter || document.querySelector('#loginForm button[type=submit]');
+      btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Logging in…';
+      try {
+        const res = await fetch('/admin/login', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('loginUser').value,
+            password: document.getElementById('loginPass').value
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          window.location.href = '/admin/';
+        } else {
+          err.textContent = data.message || 'Invalid credentials.';
+          err.classList.add('show');
+          btn.disabled = false; btn.innerHTML = '<i class="fa fa-right-to-bracket"></i> Login';
+        }
+      } catch {
+        err.textContent = 'Server error. Please try again.';
+        err.classList.add('show');
+        btn.disabled = false; btn.innerHTML = '<i class="fa fa-right-to-bracket"></i> Login';
+      }
+    });
+  </script>
+</body>
+</html>

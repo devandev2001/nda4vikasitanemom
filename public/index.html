@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>വികസിത നേമം | VIKASITA NEMOM</title>
+  <meta name="description" content="Vikasita Nemom – NDA Campaign Website for Nemom Assembly Constituency 2026">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@100..800&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div id="preloader">
+    <div class="preloader-inner">
+      <span></span><span></span>
+    </div>
+  </div>
+
+  <div class="main-wrapper">
+
+    <!-- ── HEADER ── -->
+    <header id="header" class="header-section sticky">
+      <div class="container">
+        <div class="header-wrap">
+          <div class="header-logo">
+            <a href="/"><img id="site-logo" src="/uploads/logo.svg" alt="Vikasita Nemom" onerror="this.src='/images/logo-default.svg'"></a>
+          </div>
+          <nav class="header-menu d-none d-lg-block">
+            <ul class="main-menu">
+              <li><a href="/" class="active">ഹോം</a></li>
+              <li><a href="#manifesto">മാർഗരേഖ</a></li>
+              <li><a href="#about">ഞങ്ങളെ കുറിച്ച്</a></li>
+            </ul>
+          </nav>
+          <div class="header-toggle d-lg-none">
+            <button id="menuToggle" aria-label="Toggle menu">
+              <span></span><span></span><span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── MOBILE MENU ── -->
+    <div class="mobile-menu" id="mobileMenu">
+      <button class="mobile-menu-close" id="mobileMenuClose"><i class="fa fa-times"></i></button>
+      <ul>
+        <li><a href="/">ഹോം</a></li>
+        <li><a href="#manifesto">മാർഗരേഖ</a></li>
+        <li><a href="#about">ഞങ്ങളെ കുറിച്ച്</a></li>
+      </ul>
+    </div>
+
+    <!-- ── BANNER VIDEO ── -->
+    <section class="video-banner-section" id="home">
+      <video id="bannerVideo" autoplay muted loop playsinline class="banner-video">
+        <source id="bannerVideoSrc" src="" type="video/mp4">
+      </video>
+      <div class="video-overlay"></div>
+
+      <!-- Background audio (hidden, auto-plays) -->
+      <audio id="bgAudio" loop preload="auto" style="display:none;"></audio>
+
+      <!-- Audio toggle button -->
+      <button id="audioToggleBtn" class="audio-btn" title="Toggle Background Music" style="display:none;" onclick="toggleBgAudio()">
+        <i class="fa fa-music" id="audioIcon"></i>
+      </button>
+
+      <div class="banner-content">
+        <h1 id="banner-headline" class="banner-headline">വികസിത നേമം</h1>
+        <p id="banner-subtext" class="banner-subtext">മാറ്റം തുടങ്ങാം – നേമത്ത് നിന്ന്</p>
+      </div>
+    </section>
+
+    <!-- ── MANIFESTO SECTION ── -->
+    <section class="manifesto-section" id="manifesto">
+      <div class="container text-center">
+        <div class="section-logo">
+          <img id="section-logo" src="/uploads/logo.svg" alt="Vikasita Nemom" class="img-fluid" onerror="this.src='/images/logo-default.svg'">
+        </div>
+        <h2 class="section-title" id="manifesto-title">ഇതാണ് മാറ്റം, ഇതാണ് വികസിത നേമം</h2>
+        <p class="section-sub" id="manifesto-sub">മാറാത്തത് മാറും. ഇനി നേമം വളരും.</p>
+        <div class="section-divider"></div>
+
+        <!-- PDF Viewer: scrollable iframe, full page list, mobile-friendly -->
+        <div class="manifesto-viewer" id="manifestoViewer" style="display:none;">
+
+          <!-- Tab row (only shows when >1 PDF) -->
+          <div class="pdf-tab-row" id="pdfTabRow" style="display:none;"></div>
+
+          <!-- Top bar: title + download -->
+          <div class="manifesto-bar">
+            <span class="manifesto-bar-title" id="manifestoBarTitle"></span>
+            <a class="manifesto-dl-btn" id="manifestoDlBtn" href="#" download title="Download PDF">
+              <i class="fa fa-download"></i> Download
+            </a>
+          </div>
+
+          <!-- Scrollable iframe — shows ALL pages, user just scrolls -->
+          <div class="manifesto-frame-wrap">
+            <iframe id="manifestoFrame" title="Manifesto" allowfullscreen
+              style="width:100%;height:100%;border:none;display:block;"></iframe>
+          </div>
+
+          <!-- Mobile hint -->
+          <p class="manifesto-hint">Scroll to read all pages &nbsp;·&nbsp; Pinch to zoom on mobile</p>
+        </div>
+
+        <div id="pdfNoDocMsg" style="color:#64748b;padding:30px 0;display:none;">No documents uploaded yet.</div>
+      </div>
+    </section>
+
+    <!-- ── ABOUT SECTION ── -->
+    <section class="about-section" id="about">
+      <div class="container">
+        <div class="about-inner">
+          <h2 class="about-title" id="about-title">നേമം – ഒരു പ്രതിജ്ഞ</h2>
+          <p class="about-text" id="about-text">
+            നേമം മണ്ഡലത്തിലെ ഓരോ കുടുംബത്തിനും ഒരു നല്ല ഭാവി ഉറപ്പ് നൽകുന്ന NDA-യുടെ പ്രതിബദ്ധത. 
+            ദൃഢനിശ്ചയത്തോടെ, ജനങ്ങൾക്ക് വേണ്ടി.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FOOTER ── -->
+    <footer class="footer-section">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-col">
+            <img id="footer-logo" src="/uploads/logo.svg" alt="Vikasita Nemom" style="height:55px;" onerror="this.src='/images/logo-default.svg'">
+            <p id="footer-about-text">NDA-നേമം — ഒരു ദൃഢവിശ്വാസം, വികസിത നേമം ലക്ഷ്യമാക്കുന്ന പ്രതിജ്ഞാബദ്ധ പ്രസ്ഥാനം.</p>
+          </div>
+          <div class="footer-col">
+            <h4>Quick Links</h4>
+            <ul>
+              <li><a href="/">ഹോം</a></li>
+              <li><a href="#manifesto">മാർഗരേഖ</a></li>
+              <li><a href="#about">ഞങ്ങളെ കുറിച്ച്</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Connect</h4>
+            <ul id="social-links">
+              <li><a href="https://facebook.com" target="_blank" rel="noopener"><i class="fa-brands fa-facebook"></i> Facebook</a></li>
+              <li><a href="https://twitter.com" target="_blank" rel="noopener"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</a></li>
+              <li><a href="https://youtube.com" target="_blank" rel="noopener"><i class="fa-brands fa-youtube"></i> YouTube</a></li>
+              <li><a href="https://instagram.com" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i> Instagram</a></li>
+            </ul>
+          </div>
+        </div>
+        <hr class="footer-hr">
+        <p class="footer-copy">© 2026 Vikasita Nemom – NDA Campaign. All rights reserved.</p>
+      </div>
+    </footer>
+
+  </div><!-- /.main-wrapper -->
+
+  <!-- Back to top -->
+  <button class="back-to-top" id="backToTop" title="Back to top"><i class="fa fa-chevron-up"></i></button>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>
