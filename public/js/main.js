@@ -172,9 +172,9 @@ function _renderAllPages(pdf, wrap, zoomOverride) {
     _fitZoom  = (wrapWidth - 8) / vp.width;
     var cssScale = zoom < 0 ? _fitZoom : zoom; // zoom=-1 means fit
 
-    // Update zoom label
+    // Update zoom label — show "Fit" when at fit-width, otherwise show %
     var label = document.getElementById('pdfZoomLabel');
-    if (label) label.textContent = Math.round(cssScale * 100) + '%';
+    if (label) label.textContent = (zoom < 0) ? 'Fit' : Math.round(cssScale * 100) + '%';
 
     var container = document.createElement('div');
     container.className = 'pdf-canvas-container';
@@ -266,14 +266,22 @@ window.loadInlinePdf = function (url, label) {
       btnOut._bound = true;
       btnOut.addEventListener('click', function() {
         var cur = _pdfZoom < 0 ? _fitZoom : _pdfZoom;
-        applyZoom(Math.max(0.5, parseFloat((cur - 0.25).toFixed(2))));
+        var next = parseFloat((cur - 0.25).toFixed(2));
+        // If zooming out would go to or below fit-width, snap to fit instead
+        if (next <= _fitZoom) {
+          applyZoom(-1);
+        } else {
+          applyZoom(next);
+        }
       });
     }
     if (btnIn && !btnIn._bound) {
       btnIn._bound = true;
       btnIn.addEventListener('click', function() {
-        var cur = _pdfZoom < 0 ? _fitZoom : _pdfZoom;
-        applyZoom(Math.min(4.0, parseFloat((cur + 0.25).toFixed(2))));
+        // When currently at fit-width, start from a clean 25% step above fitZoom
+        var cur  = _pdfZoom < 0 ? _fitZoom : _pdfZoom;
+        var next = parseFloat((cur + 0.25).toFixed(2));
+        applyZoom(Math.min(4.0, next));
       });
     }
     if (btnFit && !btnFit._bound) {
