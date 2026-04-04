@@ -338,6 +338,34 @@ img { max-width: 100%; display: block; }
 .footer-hr { border: none; border-top: 1px solid #1a2545; margin: 50px 0 20px; }
 .footer-copy { text-align: center; color: #555; font-size: 0.87rem; padding-bottom: 28px; }
 
+/* QR code in footer */
+.footer-qr-wrap {
+  margin-top: 20px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.footer-qr-label {
+  font-size: 0.78rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+.footer-qr {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px;
+  display: block;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  transition: transform 0.2s;
+}
+.footer-qr:hover { transform: scale(1.05); }
+
 /* ── Back to top ── */
 .back-to-top {
   position: fixed; bottom: 28px; left: 28px;
