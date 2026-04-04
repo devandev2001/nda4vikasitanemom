@@ -298,6 +298,7 @@ document.getElementById('socialForm')?.addEventListener('submit', async (e) => {
 // ── Video upload (direct to Firebase — no 50MB Vercel limit) ──
 document.getElementById('videoUploadForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  e.stopPropagation();
   const input = document.getElementById('videoFileInput');
   if (!input.files[0]) { showToast('Please select a video file', 'warning'); return; }
   const btn = e.submitter;
@@ -322,6 +323,7 @@ document.getElementById('videoUploadForm')?.addEventListener('submit', async (e)
 // ── Audio upload (direct to Firebase — no size limit) ──
 document.getElementById('audioUploadForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  e.stopPropagation();
   const input = document.getElementById('audioFileInput');
   if (!input.files[0]) { showToast('Please select an audio file', 'warning'); return; }
   const btn = e.submitter;

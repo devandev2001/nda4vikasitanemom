@@ -59,11 +59,11 @@
           </div>
         </div>
 
-        <form id="videoUploadForm" enctype="multipart/form-data">
+        <form id="videoUploadForm">
           <div class="form-group">
             <label>Upload New Banner Video (MP4 recommended, max 200MB) — <strong>Video plays silently, audio comes from background music below</strong></label>
             <div class="file-upload-zone" id="videoDropZone">
-              <input type="file" name="video" id="videoFileInput" accept="video/mp4,video/webm,video/ogg">
+              <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/ogg">
               <div class="upload-icon"><i class="fa fa-video"></i></div>
               <p>Drag & drop or click to choose a video file</p>
               <p class="file-name" id="videoFileName"></p>
@@ -93,11 +93,11 @@
           </div>
         </div>
 
-        <form id="audioUploadForm" enctype="multipart/form-data">
+        <form id="audioUploadForm">
           <div class="form-group">
             <label>Upload Background Audio (MP3 / WAV / OGG, max 30MB)</label>
             <div class="file-upload-zone" id="audioDropZone">
-              <input type="file" name="audio" id="audioFileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/aac">
+              <input type="file" id="audioFileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/aac">
               <div class="upload-icon"><i class="fa fa-music"></i></div>
               <p>Drag & drop or click to choose an audio file</p>
               <p class="file-name" id="audioFileName"></p>
