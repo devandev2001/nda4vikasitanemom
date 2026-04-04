@@ -2,14 +2,19 @@
    VIKASITA NEMOM – Main Frontend JS
    ========================================================= */
 
-// ── Preloader ──
-window.addEventListener('load', () => {
+// ── Preloader: keep visible until content is loaded ──
+function dismissPreloader() {
   const pre = document.getElementById('preloader');
-  if (pre) {
-    setTimeout(() => { pre.style.opacity = '0'; setTimeout(() => pre.remove(), 400); }, 400);
-  }
+  if (!pre) return;
+  pre.style.transition = 'opacity 0.35s';
+  pre.style.opacity = '0';
+  setTimeout(() => { if (pre.parentNode) pre.remove(); }, 380);
+}
+
+// Start fetching content immediately — don't wait for window.load
+(function init() {
   loadSiteContent();
-});
+})();
 
 // ── Load dynamic content from API ──
 async function loadSiteContent() {
@@ -19,6 +24,9 @@ async function loadSiteContent() {
     applySiteContent(data);
   } catch (e) {
     console.warn('Could not load dynamic content, using defaults.');
+  } finally {
+    // Always dismiss preloader after content attempt — no flash
+    dismissPreloader();
   }
 }
 
