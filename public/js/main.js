@@ -149,63 +149,88 @@ document.querySelectorAll('.mobile-menu a').forEach(a =>
 );
 
 /* ─────────────────────────────────────────────────────────
-   Inline PDF Viewer — native <object> embed (fastest load)
+   Inline PDF Viewer — PDF.js canvas renderer
+   Works on every browser including iOS Safari & Android Chrome
    ───────────────────────────────────────────────────────── */
 
+var _pdfDoc = null;
+var _pdfUrl = null;
+
 window.loadInlinePdf = function (url, label) {
-  const viewer  = document.getElementById('manifestoViewer');
-  const wrap    = document.getElementById('manifestoFrameWrap');
-  const titleEl = document.getElementById('manifestoBarTitle');
-  const dlBtn   = document.getElementById('manifestoDlBtn');
+  var viewer  = document.getElementById('manifestoViewer');
+  var wrap    = document.getElementById('manifestoFrameWrap');
+  var titleEl = document.getElementById('manifestoBarTitle');
+  var dlBtn   = document.getElementById('manifestoDlBtn');
   if (!viewer || !wrap) return;
 
   viewer.style.display = 'block';
   if (titleEl) titleEl.textContent = label || '';
   if (dlBtn)   { dlBtn.href = url; dlBtn.setAttribute('download', label || 'manifesto.pdf'); }
 
-  // Show loading spinner immediately
-  wrap.innerHTML =
-    '<div class="pdf-loading">' +
-      '<div class="pdf-spinner"></div>' +
-      '<span>Loading PDF…</span>' +
-    '</div>';
-
-  // Use <object> — direct native browser render, no round-trip through Google
-  // Falls back to download link for browsers that can't inline PDFs (rare mobile)
-  const obj = document.createElement('object');
-  obj.data  = url + '#toolbar=0&navpanes=0&scrollbar=1&view=FitH';
-  obj.type  = 'application/pdf';
-  obj.style.cssText = 'width:100%;height:100%;border:none;display:block;';
-
-  // Fallback inside <object> for browsers without native PDF support
-  obj.innerHTML =
-    '<div class="pdf-fallback">' +
-      '<i class="fa fa-file-pdf" style="font-size:2.5rem;color:#FFB700;margin-bottom:12px;"></i>' +
-      '<p>Your browser cannot display this PDF inline.</p>' +
-      '<a href="' + url + '" target="_blank" class="manifesto-dl-btn" style="margin-top:10px;">' +
-        '<i class="fa fa-download"></i> Open / Download PDF' +
-      '</a>' +
-    '</div>';
-
-  // Replace spinner once object loads
-  obj.addEventListener('load', function() {
-    const spinner = wrap.querySelector('.pdf-loading');
-    if (spinner) spinner.remove();
-  });
-
-  // Also clear spinner after 1s max regardless (object.load fires inconsistently)
-  setTimeout(function() {
-    const spinner = wrap.querySelector('.pdf-loading');
-    if (spinner) spinner.remove();
-  }, 1000);
-
-  wrap.innerHTML = '';
-  wrap.appendChild(obj);
-
   // Highlight active tab
-  document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.remove('active'));
-  const tab = document.querySelector('.pdf-tab-btn[data-url="' + url + '"]');
+  document.querySelectorAll('.pdf-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  var tab = document.querySelector('.pdf-tab-btn[data-url="' + url + '"]');
   if (tab) tab.classList.add('active');
+
+  if (_pdfUrl === url && _pdfDoc) return; // already loaded
+  _pdfUrl = url;
+
+  // Show spinner
+  wrap.innerHTML =
+    '<div class="pdf-loading"><div class="pdf-spinner"></div><span>Loading…</span></div>';
+
+  // PDF.js: render all pages as canvases into a scrollable container
+  var pdfjsLib = window['pdfjs-dist/build/pdf'];
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.js';
+
+  pdfjsLib.getDocument({ url: url, withCredentials: false }).promise.then(function(pdf) {
+    _pdfDoc = pdf;
+    var totalPages = pdf.numPages;
+
+    // Build scrollable canvas container
+    var container = document.createElement('div');
+    container.className = 'pdf-canvas-container';
+
+    wrap.innerHTML = '';
+    wrap.appendChild(container);
+
+    // Render all pages sequentially
+    var renderPage = function(num) {
+      pdf.getPage(num).then(function(page) {
+        var wrapWidth = wrap.clientWidth || 360;
+        var viewport  = page.getViewport({ scale: 1 });
+        var scale     = (wrapWidth - 4) / viewport.width;
+        var scaled    = page.getViewport({ scale: scale });
+
+        var pageDiv = document.createElement('div');
+        pageDiv.className = 'pdf-page-wrap';
+
+        var canvas = document.createElement('canvas');
+        canvas.width  = Math.floor(scaled.width);
+        canvas.height = Math.floor(scaled.height);
+
+        pageDiv.appendChild(canvas);
+        container.appendChild(pageDiv);
+
+        page.render({ canvasContext: canvas.getContext('2d'), viewport: scaled }).promise.then(function() {
+          if (num < totalPages) renderPage(num + 1);
+        });
+      });
+    };
+
+    renderPage(1);
+
+  }).catch(function(err) {
+    console.error('PDF.js error:', err);
+    wrap.innerHTML =
+      '<div class="pdf-fallback">' +
+        '<i class="fa fa-file-pdf" style="font-size:2.5rem;color:#FFB700;margin-bottom:14px;"></i>' +
+        '<p>Could not load PDF preview.</p>' +
+        '<a href="' + url + '" target="_blank" class="manifesto-dl-btn" style="margin-top:12px;">' +
+          '<i class="fa fa-download"></i> Open PDF' +
+        '</a>' +
+      '</div>';
+  });
 };
 
 // ── Build manifesto viewer with optional tab row ──
