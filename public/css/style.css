@@ -386,9 +386,8 @@ img { max-width: 100%; display: block; }
 }
 .pdf-page-wrap canvas {
   display: block;
-  width: 100% !important;
-  height: auto !important;
   max-width: 100%;
+  /* width/height set explicitly by JS for HiDPI sharpness — do NOT override */
 }
 
 /* Hint text */

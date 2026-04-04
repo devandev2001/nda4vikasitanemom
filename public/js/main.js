@@ -194,20 +194,27 @@ window.loadInlinePdf = function (url, label) {
     wrap.innerHTML = '';
     wrap.appendChild(container);
 
-    // Render all pages sequentially
+    // Render all pages sequentially — use devicePixelRatio for crisp Retina/AMOLED rendering
     var renderPage = function(num) {
       pdf.getPage(num).then(function(page) {
+        var dpr       = window.devicePixelRatio || 1;
         var wrapWidth = wrap.clientWidth || 360;
         var viewport  = page.getViewport({ scale: 1 });
-        var scale     = (wrapWidth - 4) / viewport.width;
-        var scaled    = page.getViewport({ scale: scale });
+        // Scale to fill wrap width, then multiply by DPR for sharpness
+        var cssScale  = (wrapWidth - 4) / viewport.width;
+        var renderScale = cssScale * dpr;
+        var scaled    = page.getViewport({ scale: renderScale });
 
         var pageDiv = document.createElement('div');
         pageDiv.className = 'pdf-page-wrap';
 
         var canvas = document.createElement('canvas');
+        // Physical pixels = scaled size (sharp on HiDPI screens)
         canvas.width  = Math.floor(scaled.width);
         canvas.height = Math.floor(scaled.height);
+        // CSS display size = normal size (so it doesn't appear huge)
+        canvas.style.width  = Math.floor(wrapWidth - 4) + 'px';
+        canvas.style.height = Math.floor(scaled.height / dpr) + 'px';
 
         pageDiv.appendChild(canvas);
         container.appendChild(pageDiv);
