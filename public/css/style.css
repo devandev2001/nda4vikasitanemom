@@ -368,26 +368,27 @@ img { max-width: 100%; display: block; }
   background: #111e38;
   display: block;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 .pdf-canvas-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;   /* pages stretch to fill full width */
   gap: 6px;
   padding: 8px 0;
   background: #1a1a1a;
-  min-width: 100%;
-  width: max-content; /* expands to widest page so h-scroll works */
+  width: 100%;
 }
 .pdf-page-wrap {
+  width: 100%;
   line-height: 0;
   box-shadow: 0 2px 12px rgba(0,0,0,0.5);
 }
 .pdf-page-wrap canvas {
   display: block;
-  max-width: none; /* allow canvas to be wider than viewport — user scrolls */
+  width: 100%;             /* always fills the page div */
+  height: auto;            /* height set inline via JS */
 }
 
 /* Hint text */
@@ -489,8 +490,8 @@ img { max-width: 100%; display: block; }
     flex-shrink: 0;
   }
   .manifesto-frame-wrap {
-    height: 75vh;
-    min-height: 400px;
+    height: 80vh;
+    min-height: 480px;
   }
   .manifesto-hint { font-size: 0.7rem; padding: 7px 10px; }
   .pdf-tab-btn    { font-size: 0.78rem; padding: 5px 11px; }
@@ -509,7 +510,7 @@ img { max-width: 100%; display: block; }
 @media (max-width: 390px) {
   .banner-headline  { font-size: 1.7rem; }
   .banner-subtext   { font-size: 0.9rem; }
-  .manifesto-frame-wrap { height: 68vh; min-height: 340px; }
+  .manifesto-frame-wrap { height: 78vh; min-height: 420px; }
   .container        { padding: 0 12px; }
   .section-title    { font-size: 1.2rem; }
 }

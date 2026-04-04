@@ -194,39 +194,32 @@ window.loadInlinePdf = function (url, label) {
     wrap.innerHTML = '';
     wrap.appendChild(container);
 
-    // Render all pages — sharp on all screens, minimum readable text size
+    // Render all pages — always fit to container width, sharp on all screens
     var renderPage = function(num) {
       pdf.getPage(num).then(function(page) {
         var dpr       = Math.min(window.devicePixelRatio || 1, 3); // cap at 3×
-        var wrapWidth = wrap.clientWidth || 360;
+        // Re-read width each time (in case of resize / first paint)
+        var wrapWidth = wrap.clientWidth || window.innerWidth || 360;
         var viewport  = page.getViewport({ scale: 1 });
 
-        // Fit page to wrap width
-        var fitScale = (wrapWidth - 4) / viewport.width;
-
-        // On mobile the text becomes too small at fit-width for a dense A4 PDF.
-        // Enforce a minimum scale so text is always readable (equivalent to ~1.5× A4 on screen).
-        var MIN_SCALE = 1.5;
-        var cssScale  = Math.max(fitScale, MIN_SCALE);
-
-        // Render at cssScale × DPR for crisp Retina/AMOLED pixels
+        // Always fill the container width exactly — no horizontal scroll needed
+        var cssScale    = (wrapWidth - 4) / viewport.width;
+        // Render at physical pixel resolution for crisp Retina/AMOLED text
         var renderScale = cssScale * dpr;
         var scaled      = page.getViewport({ scale: renderScale });
 
-        // CSS display dimensions
-        var cssW = Math.floor(scaled.width  / dpr);
-        var cssH = Math.floor(scaled.height / dpr);
+        // CSS display dimensions (logical pixels — same as container width)
+        var cssW = Math.round(cssScale * viewport.width);
+        var cssH = Math.round(cssScale * viewport.height);
 
         var pageDiv = document.createElement('div');
         pageDiv.className = 'pdf-page-wrap';
-        // Allow horizontal scroll if page is wider than wrap
-        pageDiv.style.width    = cssW + 'px';
-        pageDiv.style.minWidth = '100%';
+        pageDiv.style.width = '100%';
 
         var canvas = document.createElement('canvas');
-        canvas.width        = Math.floor(scaled.width);   // physical pixels
+        canvas.width        = Math.floor(scaled.width);   // physical pixels (HiDPI)
         canvas.height       = Math.floor(scaled.height);
-        canvas.style.width  = cssW + 'px';                // CSS display size
+        canvas.style.width  = '100%';                     // fill the page div
         canvas.style.height = cssH + 'px';
         canvas.style.display = 'block';
 
