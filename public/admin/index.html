@@ -237,7 +237,10 @@
     </div><!-- /content-area -->
   </main>
 
-  <!-- Firebase JS SDK (for direct large file uploads) -->
-  <script type="module" src="/js/admin.js"></script>
+  <!-- Firebase JS SDK (loaded first, before admin.js) -->
+  <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-storage-compat.js"></script>
+  <!-- Admin panel logic -->
+  <script src="/js/admin.js"></script>
 </body>
 </html>

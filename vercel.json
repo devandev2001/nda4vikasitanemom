@@ -10,12 +10,6 @@
     }
   ],
   "routes": [
-    { "src": "/api/(.*)",    "dest": "server.js" },
-    { "src": "/admin/login", "dest": "server.js" },
-    { "src": "/admin/logout","dest": "server.js" },
-    { "src": "/admin/check", "dest": "server.js" },
-    { "src": "/admin$",      "dest": "server.js" },
-    { "src": "/admin/$",     "dest": "server.js" },
-    { "src": "/(.*)",        "dest": "/public/$1" }
+    { "src": "/(.*)", "dest": "server.js" }
   ]
 }
