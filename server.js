@@ -231,6 +231,18 @@ app.post('/api/save/audio', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
+app.post('/api/save/pdf', requireAuth, async (req, res) => {
+  try {
+    const { url, label } = req.body;
+    if (!url) return res.status(400).json({ ok: false, message: 'No URL provided' });
+    const content = await readContent();
+    if (!Array.isArray(content.pdfs)) content.pdfs = [];
+    content.pdfs.push({ label: (label || 'Manifesto').trim(), url, uploadedAt: new Date().toISOString() });
+    await writeContent(content);
+    res.json({ ok: true, url, label: (label || 'Manifesto').trim() });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
 // ─── Admin API ────────────────────────────────────────────────────────────────
 
 app.post('/api/content/texts', requireAuth, async (req, res) => {

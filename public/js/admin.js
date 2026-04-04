@@ -379,19 +379,24 @@ document.getElementById('pdfUploadForm').addEventListener('submit', function(e) 
   var label = document.getElementById('pdfLabel').value.trim();
   if (!input.files[0]) { toast('Please select a PDF file', 'warning'); return; }
   if (!label) { toast('Please enter a label for this PDF', 'warning'); return; }
-  var btn = e.submitter;
+  var btn = e.submitter; var file = input.files[0];
   btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
-  var fd = new FormData(); fd.append('pdf', input.files[0]); fd.append('label', label);
-  xhrUpload('/api/upload/pdf', fd, 'pdfProgressFill', 'pdfProgressText', 'pdfProgress')
-    .then(function(d) {
-      if (d.ok) {
-        toast('PDF uploaded!');
-        input.value = ''; document.getElementById('pdfFileName').textContent = '';
-        document.getElementById('pdfLabel').value = '';
-        loadContent();
-      } else { toast(d.message || 'Upload failed', 'error'); }
+  // Upload directly to Firebase Storage (bypasses Vercel 4.5MB body limit)
+  firebaseUpload(file, 'pdfs', 'pdfProgressFill', 'pdfProgressText', 'pdfProgress')
+    .then(function(url) {
+      return authFetch('/api/save/pdf', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url, label: label })
+      }).then(function(res) { return res.json(); }).then(function(d) {
+        if (d.ok) {
+          toast('PDF uploaded!');
+          input.value = ''; document.getElementById('pdfFileName').textContent = '';
+          document.getElementById('pdfLabel').value = '';
+          loadContent();
+        } else { toast(d.message || 'Failed to save PDF', 'error'); }
+      });
     })
-    .catch(function(err) { toast(err.message || 'Upload failed', 'error'); })
+    .catch(function(err) { if (err.message !== 'Session expired') toast('Upload failed: ' + err.message, 'error'); })
     .finally(function() { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload PDF'; });
 });
 
