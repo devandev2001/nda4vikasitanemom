@@ -2,6 +2,62 @@
    VIKASITA NEMOM – Admin Panel JS
    ========================================================= */
 
+// ── Firebase config (client-side — safe to expose) ──
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js';
+
+const firebaseApp = initializeApp({
+  apiKey:            "AIzaSyAEdDwXotDoLyJNNXyYQ4y8yY1jGxkJCzs",
+  authDomain:        "nda4vikasitanemom.firebaseapp.com",
+  projectId:         "nda4vikasitanemom",
+  storageBucket:     "nda4vikasitanemom.firebasestorage.app",
+  messagingSenderId: "851294523572",
+  appId:             "1:851294523572:web:3dc9001738c2d415a107e1"
+});
+const storage = getStorage(firebaseApp);
+
+// ── Upload large file directly to Firebase Storage from browser ──
+function uploadToFirebaseDirect(file, folder, progressFillId, progressTextId, progressWrapId) {
+  return new Promise((resolve, reject) => {
+    const wrap = progressWrapId ? document.getElementById(progressWrapId) : null;
+    const fill = progressFillId ? document.getElementById(progressFillId) : null;
+    const text = progressTextId ? document.getElementById(progressTextId) : null;
+    if (wrap) wrap.style.display = 'block';
+
+    const ext      = file.name.split('.').pop().toLowerCase();
+    const filename = `${folder}/${Date.now()}-${Math.round(Math.random()*1e6)}.${ext}`;
+    const storageRef = ref(storage, filename);
+    const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
+
+    task.on('state_changed',
+      (snap) => {
+        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+        if (fill) fill.style.width = pct + '%';
+        if (text) text.textContent = `Uploading… ${pct}%`;
+      },
+      (err) => {
+        if (wrap) wrap.style.display = 'none';
+        reject({ message: err.message });
+      },
+      async () => {
+        if (wrap) wrap.style.display = 'none';
+        const url = await getDownloadURL(task.snapshot.ref);
+        resolve(url);
+      }
+    );
+  });
+}
+
+// ── Tell server to save the Firebase URL to Firestore ──
+async function saveUrlToServer(endpoint, fieldName, url) {
+  const res = await authFetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, fieldName })
+  });
+  return res.json();
+}
+
 // ── Toast Notification ──
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
@@ -239,52 +295,50 @@ document.getElementById('socialForm')?.addEventListener('submit', async (e) => {
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-floppy-disk"></i> Save Social Links';
 });
 
-// ── Video upload ──
+// ── Video upload (direct to Firebase — no 50MB Vercel limit) ──
 document.getElementById('videoUploadForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const input = document.getElementById('videoFileInput');
   if (!input.files[0]) { showToast('Please select a video file', 'warning'); return; }
   const btn = e.submitter;
   btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading…';
-  const fd = new FormData();
-  fd.append('video', input.files[0]);
   try {
-    const data = await uploadWithProgress('/api/upload/video', fd, 'videoProgressFill', 'videoProgressText', 'videoProgress');
+    const url = await uploadToFirebaseDirect(input.files[0], 'videos', 'videoProgressFill', 'videoProgressText', 'videoProgress');
+    const data = await saveUrlToServer('/api/save/video', 'bannerVideoUrl', url);
     if (data.ok) {
       showToast('Video uploaded successfully!');
       const wrap = document.getElementById('currentVideoWrap');
-      const vid = document.getElementById('currentVideoPreview');
+      const vid  = document.getElementById('currentVideoPreview');
       const name = document.getElementById('currentVideoName');
       if (wrap) wrap.style.display = 'block';
-      if (vid) { vid.src = data.url; vid.load(); }
-      if (name) name.textContent = data.url.split('/').pop();
+      if (vid)  { vid.src = url; vid.load(); }
+      if (name) name.textContent = input.files[0].name;
       input.value = ''; document.getElementById('videoFileName').textContent = '';
-    } else { showToast(data.message || 'Upload failed', 'error'); }
+    } else { showToast(data.message || 'Save failed', 'error'); }
   } catch (err) { showToast(err.message || 'Upload failed', 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload Video';
 });
 
-// ── Audio upload ──
+// ── Audio upload (direct to Firebase — no size limit) ──
 document.getElementById('audioUploadForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const input = document.getElementById('audioFileInput');
   if (!input.files[0]) { showToast('Please select an audio file', 'warning'); return; }
   const btn = e.submitter;
   btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading…';
-  const fd = new FormData();
-  fd.append('audio', input.files[0]);
   try {
-    const data = await uploadWithProgress('/api/upload/audio', fd, 'audioProgressFill', 'audioProgressText', 'audioProgress');
+    const url = await uploadToFirebaseDirect(input.files[0], 'audio', 'audioProgressFill', 'audioProgressText', 'audioProgress');
+    const data = await saveUrlToServer('/api/save/audio', 'bgAudioUrl', url);
     if (data.ok) {
       showToast('Background audio uploaded!');
       const wrap = document.getElementById('currentAudioWrap');
       const aud  = document.getElementById('currentAudioPreview');
       const name = document.getElementById('currentAudioName');
       if (wrap) wrap.style.display = 'block';
-      if (aud)  { aud.src = data.url; aud.load(); }
-      if (name) name.textContent = data.url.split('/').pop();
+      if (aud)  { aud.src = url; aud.load(); }
+      if (name) name.textContent = input.files[0].name;
       input.value = ''; document.getElementById('audioFileName').textContent = '';
-    } else { showToast(data.message || 'Upload failed', 'error'); }
+    } else { showToast(data.message || 'Save failed', 'error'); }
   } catch (err) { showToast(err.message || 'Upload failed', 'error'); }
   btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-arrow-up"></i> Upload Audio';
 });

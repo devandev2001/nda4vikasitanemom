@@ -212,6 +212,30 @@ app.get('/api/content', async (_req, res) => {
   res.json(await readContent());
 });
 
+// ─── Save URL endpoints (for direct Firebase browser uploads) ─────────────────
+// Browser uploads file directly to Firebase Storage, then calls these to save the URL
+app.post('/api/save/video', requireAuth, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ ok: false, message: 'No URL provided' });
+    const content = await readContent();
+    content.bannerVideoUrl = url;
+    await writeContent(content);
+    res.json({ ok: true, url });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
+app.post('/api/save/audio', requireAuth, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ ok: false, message: 'No URL provided' });
+    const content = await readContent();
+    content.bgAudioUrl = url;
+    await writeContent(content);
+    res.json({ ok: true, url });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
 // ─── Admin API ────────────────────────────────────────────────────────────────
 
 app.post('/api/content/texts', requireAuth, async (req, res) => {
