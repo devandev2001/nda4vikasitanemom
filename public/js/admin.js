@@ -114,8 +114,7 @@ function uploadWithProgress(url, formData, progressFillId, progressTextId, progr
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    xhr.withCredentials = true;                           // ← send session cookie
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.setRequestHeader('Authorization', 'Bearer ' + getAdminToken());
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
         const pct = Math.round((e.loaded / e.total) * 100);
@@ -140,16 +139,21 @@ function uploadWithProgress(url, formData, progressFillId, progressTextId, progr
 }
 
 // ── Authenticated fetch helper ──
+function getAdminToken() {
+  return localStorage.getItem('adminToken') || '';
+}
+
 async function authFetch(url, options = {}) {
-  options.credentials = options.credentials || 'same-origin'; // Ensure credentials are included
+  const token = getAdminToken();
   const res = await fetch(url, {
     ...options,
     headers: {
-      'X-Requested-With': 'XMLHttpRequest',
+      'Authorization': 'Bearer ' + token,
       ...(options.headers || {})
     }
   });
   if (res.status === 401) {
+    localStorage.removeItem('adminToken');
     window.location.href = '/admin/login.html';
     throw new Error('Session expired. Please login again.');
   }
@@ -406,13 +410,15 @@ window.deletePdf = async function(idx) {
 // ── Init ──
 // Check authentication first, then load content
 (async () => {
+  const token = getAdminToken();
+  if (!token) { window.location.href = '/admin/login.html'; return; }
   try {
     const res = await fetch('/admin/check', {
-      credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      headers: { 'Authorization': 'Bearer ' + token }
     });
     const data = await res.json();
     if (!data.ok) {
+      localStorage.removeItem('adminToken');
       window.location.href = '/admin/login.html';
       return;
     }

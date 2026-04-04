@@ -31,7 +31,7 @@
       </ul>
     </nav>
     <div class="sidebar-footer">
-      <a href="/admin/logout"><i class="fa fa-right-from-bracket"></i> Logout</a>
+      <a href="#" onclick="localStorage.removeItem('adminToken');window.location.href='/admin/login.html';return false;"><i class="fa fa-right-from-bracket"></i> Logout</a>
     </div>
   </aside>
 

@@ -28,9 +28,12 @@
     </form>
   </div>
   <script>
-    // If already logged in, skip to dashboard
-    fetch('/admin/check', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(r => r.json()).then(d => { if (d.ok) window.location.href = '/admin/'; }).catch(() => {});
+    // If already logged in (valid JWT in localStorage), skip to dashboard
+    const _t = localStorage.getItem('adminToken');
+    if (_t) {
+      fetch('/admin/check', { headers: { 'Authorization': 'Bearer ' + _t } })
+        .then(r => r.json()).then(d => { if (d.ok) window.location.href = '/admin/'; }).catch(() => {});
+    }
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -41,7 +44,6 @@
       try {
         const res = await fetch('/admin/login', {
           method: 'POST',
-          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: document.getElementById('loginUser').value,
@@ -50,6 +52,7 @@
         });
         const data = await res.json();
         if (data.ok) {
+          localStorage.setItem('adminToken', data.token);
           window.location.href = '/admin/';
         } else {
           err.textContent = data.message || 'Invalid credentials.';

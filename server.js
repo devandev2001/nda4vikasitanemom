@@ -6,10 +6,10 @@
  */
 
 const express        = require('express');
-const session        = require('express-session');
 const multer         = require('multer');
 const bcrypt         = require('bcryptjs');
 const path           = require('path');
+const jwt            = require('jsonwebtoken');
 const admin          = require('firebase-admin');
 
 const app  = express();
@@ -72,6 +72,7 @@ async function writeContent(data) {
 const ADMIN_USER      = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH ||
   bcrypt.hashSync(process.env.ADMIN_PASS || 'nemom2026', 10);
+const JWT_SECRET = process.env.SESSION_SECRET || 'nemom-secret-2026-xk9';
 
 // ─── Multer: memory storage (buffer → Firebase Storage) ──────────────────────
 const memStorage = multer.memoryStorage();
@@ -152,36 +153,29 @@ app.use('/api/upload', (req, res, next) => {
   req.socket.setTimeout(120000); // 2 min timeout for large uploads
   next();
 });
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'nemom-secret-2026-xk9',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 8 * 60 * 60 * 1000 }
-}));
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
-function isLoggedIn(req) { return !!(req.session && req.session.admin); }
+function getToken(req) {
+  // 1) Authorization: Bearer <token>
+  const auth = req.headers.authorization || '';
+  if (auth.startsWith('Bearer ')) return auth.slice(7);
+  // 2) x-admin-token header (fallback)
+  return req.headers['x-admin-token'] || null;
+}
+
+function isLoggedIn(req) {
+  const token = getToken(req);
+  if (!token) return false;
+  try { jwt.verify(token, JWT_SECRET); return true; }
+  catch { return false; }
+}
 
 function requireAuth(req, res, next) {
   if (isLoggedIn(req)) return next();
-  // API / XHR → 401 JSON
-  if (req.path.startsWith('/api/') || req.xhr ||
-      (req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest') {
-    return res.status(401).json({ ok: false, message: 'Not authenticated. Please login.' });
-  }
-  return res.redirect('/admin/login.html');
+  return res.status(401).json({ ok: false, message: 'Not authenticated. Please login.' });
 }
 
 // ─── Static files ────────────────────────────────────────────────────────────
-// Block direct access to admin HTML via static — force through the protected route
-app.use('/admin', (req, res, next) => {
-  const file = req.path.replace(/^\//, '').toLowerCase();
-  // Allow login page and static assets (non-html files) to pass through
-  if (file === 'login.html' || (file !== '' && !file.endsWith('.html'))) return next();
-  // /admin/, /admin/index.html, or any other .html → require auth
-  if (!isLoggedIn(req)) return res.redirect('/admin/login.html');
-  next();
-});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Auth routes ─────────────────────────────────────────────────────────────
@@ -190,20 +184,21 @@ app.post('/admin/login', (req, res) => {
   if (!username || !password)
     return res.status(400).json({ ok: false, message: 'Username and password required' });
   if (username === ADMIN_USER && bcrypt.compareSync(password, ADMIN_PASS_HASH)) {
-    req.session.admin = true;
-    return req.session.save(() => res.json({ ok: true }));
+    const token = jwt.sign({ admin: true }, JWT_SECRET, { expiresIn: '8h' });
+    return res.json({ ok: true, token });
   }
   res.status(401).json({ ok: false, message: 'Invalid username or password' });
 });
 
-app.get('/admin/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/admin/login.html'));
+app.get('/admin/logout', (_req, res) => {
+  res.redirect('/admin/login.html');
 });
 
 app.get('/admin/check', (req, res) => res.json({ ok: isLoggedIn(req) }));
 
 // ─── Admin HTML (protected) ───────────────────────────────────────────────────
-app.get(['/admin', '/admin/', '/admin/index.html'], requireAuth, (_req, res) => {
+// Admin HTML is served as static; client-side JS handles auth redirect via /admin/check
+app.get(['/admin', '/admin/'], (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
