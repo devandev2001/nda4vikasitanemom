@@ -143,8 +143,9 @@ window.loadInlinePdf = function (url, label) {
   if (titleEl) titleEl.textContent = label || '';
   if (dlBtn)   { dlBtn.href = url; dlBtn.setAttribute('download', label || 'manifesto.pdf'); }
 
-  // iframe src — append #toolbar=0 to hide browser PDF toolbar clutter on desktop
-  frame.src = url + '#toolbar=0&view=FitH';
+  // Use Google Docs Viewer to embed PDF — avoids cross-origin iframe block in Chrome
+  var viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(url);
+  frame.src = viewerUrl;
 
   // Highlight active tab
   document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.remove('active'));
