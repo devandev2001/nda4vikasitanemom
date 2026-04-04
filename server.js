@@ -120,14 +120,25 @@ async function uploadToFirebase(file, folder) {
   const ext      = path.extname(file.originalname).toLowerCase();
   const filename = `${folder}/${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
   const blob     = bucket.file(filename);
-  await blob.save(file.buffer, { metadata: { contentType: file.mimetype }, public: true });
-  const url = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+
+  await blob.save(file.buffer, {
+    metadata: { contentType: file.mimetype },
+    public: true
+  });
+
+  // makePublic() ensures the object ACL is set
+  await blob.makePublic();
+
+  // Always use storage.googleapis.com — works for both .appspot.com and .firebasestorage.app buckets
+  const encodedFilename = filename.split('/').map(encodeURIComponent).join('/');
+  const url = `https://storage.googleapis.com/${bucket.name}/${encodedFilename}`;
   return { url, filename };
 }
 
 async function deleteFromFirebase(url) {
-  if (!url || !url.includes('storage.googleapis.com')) return;
+  if (!url) return;
   try {
+    // Handle both storage.googleapis.com and firebasestorage.googleapis.com URLs
     const match = url.match(/storage\.googleapis\.com\/[^/]+\/(.+)/);
     if (match) await bucket.file(decodeURIComponent(match[1])).delete();
   } catch (_) { /* file may already be gone */ }
