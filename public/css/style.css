@@ -450,11 +450,46 @@ img { max-width: 100%; display: block; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  /* Header */
   .header-wrap { height: 60px; }
-  .video-banner-section { min-height: 60vh; }
-  .banner-headline { font-size: 2rem; }
-  .manifesto-section { padding: 60px 0; }
-  .manifesto-bar { flex-direction: column; align-items: flex-start; }
-  .manifesto-frame-wrap { height: 70vh; min-height: 420px; }
-  .audio-btn { bottom: 16px; right: 16px; width: 42px; height: 42px; font-size: 1rem; }
+  .header-logo img { height: 36px; }
+
+  /* Banner */
+  .video-banner-section { min-height: 100svh; }
+  .banner-headline { font-size: clamp(1.8rem, 8vw, 2.6rem); }
+  .banner-subtext  { font-size: clamp(0.95rem, 4vw, 1.2rem); }
+
+  /* Manifesto section */
+  .manifesto-section { padding: 48px 0 40px; }
+  .section-logo img  { max-height: 52px; }
+  .section-title     { font-size: clamp(1.2rem, 5vw, 1.8rem); }
+  .section-sub       { font-size: 1rem; }
+
+  /* PDF viewer */
+  .manifesto-viewer        { margin: 20px auto 0; border-radius: 10px; }
+  .manifesto-bar           { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 14px; }
+  .manifesto-bar-title     { font-size: 0.88rem; white-space: normal; }
+  .manifesto-dl-btn        { font-size: 0.82rem; padding: 5px 10px; }
+  .manifesto-frame-wrap    { height: 72vh; min-height: 380px; }
+  .manifesto-hint          { font-size: 0.72rem; }
+  .pdf-tab-btn             { font-size: 0.78rem; padding: 5px 11px; }
+
+  /* About */
+  .about-section  { padding: 52px 0; }
+  .about-text     { font-size: 1rem; }
+
+  /* Footer */
+  .footer-section { padding: 48px 0 0; }
+  .footer-grid    { gap: 28px; }
+  .footer-col p   { font-size: 0.9rem; }
+
+  /* Audio & back-to-top buttons — keep clear of each other */
+  .audio-btn    { bottom: 80px; right: 16px; width: 42px; height: 42px; font-size: 1rem; }
+  .back-to-top  { bottom: 28px; left: 16px; width: 40px; height: 40px; font-size: 0.9rem; }
+}
+
+@media (max-width: 400px) {
+  .banner-headline  { font-size: 1.6rem; }
+  .manifesto-frame-wrap { height: 65vh; min-height: 320px; }
+  .container        { padding: 0 14px; }
 }
