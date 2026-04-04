@@ -104,6 +104,28 @@ wireFileInput('audioFileInput', 'audioFileName', 'audioDropZone');
 wireFileInput('logoFileInput', 'logoFileName', 'logoDropZone');
 wireFileInput('pdfFileInput', 'pdfFileName', 'pdfDropZone');
 
+// ── Authenticated fetch helper ──
+function getAdminToken() {
+  return localStorage.getItem('adminToken') || '';
+}
+
+async function authFetch(url, options = {}) {
+  const token = getAdminToken();
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      ...(options.headers || {})
+    }
+  });
+  if (res.status === 401) {
+    localStorage.removeItem('adminToken');
+    window.location.href = '/admin/login.html';
+    throw new Error('Session expired. Please login again.');
+  }
+  return res;
+}
+
 // ── XHR upload with progress ──
 function uploadWithProgress(url, formData, progressFillId, progressTextId, progressWrapId) {
   return new Promise((resolve, reject) => {
@@ -136,28 +158,6 @@ function uploadWithProgress(url, formData, progressFillId, progressTextId, progr
     xhr.addEventListener('error', () => { if (wrap) wrap.style.display = 'none'; reject({ message: 'Network error' }); });
     xhr.send(formData);
   });
-}
-
-// ── Authenticated fetch helper ──
-function getAdminToken() {
-  return localStorage.getItem('adminToken') || '';
-}
-
-async function authFetch(url, options = {}) {
-  const token = getAdminToken();
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      ...(options.headers || {})
-    }
-  });
-  if (res.status === 401) {
-    localStorage.removeItem('adminToken');
-    window.location.href = '/admin/login.html';
-    throw new Error('Session expired. Please login again.');
-  }
-  return res;
 }
 
 // ── Load existing content into forms ──
