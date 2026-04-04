@@ -12,12 +12,13 @@ const fs       = require('fs');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Ensure directories exist ────────────────────────────────────────────────
+// ─── Ensure directories exist (safe for serverless read-only FS) ─────────────
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 const DATA_FILE   = path.join(__dirname, 'data', 'content.json');
 
 [UPLOADS_DIR, path.join(__dirname, 'data')].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); }
+  catch (_) { /* read-only FS on serverless — uploads/data won't persist anyway */ }
 });
 
 // ─── Default content ─────────────────────────────────────────────────────────
@@ -280,11 +281,15 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ ok: false, message: err.message || 'Internal server error' });
 });
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log('\n✅  Vikasita Nemom server running!');
-  console.log(`   Website  →  http://localhost:${PORT}`);
-  console.log(`   Admin    →  http://localhost:${PORT}/admin/`);
-  console.log(`\n   Username: ${ADMIN_USER}`);
-  console.log(`   Password: ${process.env.ADMIN_PASS || 'nemom2026'}\n`);
-});
+// ─── Start (local dev) / Export (Vercel serverless) ──────────────────────────
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('\n✅  Vikasita Nemom server running!');
+    console.log(`   Website  →  http://localhost:${PORT}`);
+    console.log(`   Admin    →  http://localhost:${PORT}/admin/`);
+    console.log(`\n   Username: ${ADMIN_USER}`);
+    console.log(`   Password: ${process.env.ADMIN_PASS || 'nemom2026'}\n`);
+  });
+}
+
+module.exports = app;
