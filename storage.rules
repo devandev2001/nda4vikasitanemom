@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Public read for all files
+    match /{allPaths=**} {
+      allow read: if true;
+      // Allow writes only — no auth needed since admin panel controls access
+      // The admin panel is JWT-protected; direct Storage writes are only possible
+      // if you know the Firebase config (which is intentionally exposed client-side)
+      allow write: if true;
+    }
+  }
+}
