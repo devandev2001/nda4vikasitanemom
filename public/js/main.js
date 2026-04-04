@@ -194,32 +194,48 @@ window.loadInlinePdf = function (url, label) {
     wrap.innerHTML = '';
     wrap.appendChild(container);
 
-    // Render all pages sequentially — use devicePixelRatio for crisp Retina/AMOLED rendering
+    // Render all pages — sharp on all screens, minimum readable text size
     var renderPage = function(num) {
       pdf.getPage(num).then(function(page) {
-        var dpr       = window.devicePixelRatio || 1;
+        var dpr       = Math.min(window.devicePixelRatio || 1, 3); // cap at 3×
         var wrapWidth = wrap.clientWidth || 360;
         var viewport  = page.getViewport({ scale: 1 });
-        // Scale to fill wrap width, then multiply by DPR for sharpness
-        var cssScale  = (wrapWidth - 4) / viewport.width;
+
+        // Fit page to wrap width
+        var fitScale = (wrapWidth - 4) / viewport.width;
+
+        // On mobile the text becomes too small at fit-width for a dense A4 PDF.
+        // Enforce a minimum scale so text is always readable (equivalent to ~1.5× A4 on screen).
+        var MIN_SCALE = 1.5;
+        var cssScale  = Math.max(fitScale, MIN_SCALE);
+
+        // Render at cssScale × DPR for crisp Retina/AMOLED pixels
         var renderScale = cssScale * dpr;
-        var scaled    = page.getViewport({ scale: renderScale });
+        var scaled      = page.getViewport({ scale: renderScale });
+
+        // CSS display dimensions
+        var cssW = Math.floor(scaled.width  / dpr);
+        var cssH = Math.floor(scaled.height / dpr);
 
         var pageDiv = document.createElement('div');
         pageDiv.className = 'pdf-page-wrap';
+        // Allow horizontal scroll if page is wider than wrap
+        pageDiv.style.width    = cssW + 'px';
+        pageDiv.style.minWidth = '100%';
 
         var canvas = document.createElement('canvas');
-        // Physical pixels = scaled size (sharp on HiDPI screens)
-        canvas.width  = Math.floor(scaled.width);
-        canvas.height = Math.floor(scaled.height);
-        // CSS display size = normal size (so it doesn't appear huge)
-        canvas.style.width  = Math.floor(wrapWidth - 4) + 'px';
-        canvas.style.height = Math.floor(scaled.height / dpr) + 'px';
+        canvas.width        = Math.floor(scaled.width);   // physical pixels
+        canvas.height       = Math.floor(scaled.height);
+        canvas.style.width  = cssW + 'px';                // CSS display size
+        canvas.style.height = cssH + 'px';
+        canvas.style.display = 'block';
+
+        var ctx = canvas.getContext('2d');
 
         pageDiv.appendChild(canvas);
         container.appendChild(pageDiv);
 
-        page.render({ canvasContext: canvas.getContext('2d'), viewport: scaled }).promise.then(function() {
+        page.render({ canvasContext: ctx, viewport: scaled }).promise.then(function() {
           if (num < totalPages) renderPage(num + 1);
         });
       });
