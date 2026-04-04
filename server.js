@@ -1,25 +1,40 @@
 /**
- * Vikasita Nemom – Express Backend Server
+ * Vikasita Nemom – Express Backend
+ * Storage  : Firebase Storage  (files)
+ * Database : Firebase Firestore (content)
+ * Hosting  : Vercel serverless
  */
 
-const express  = require('express');
-const session  = require('express-session');
-const multer   = require('multer');
-const bcrypt   = require('bcryptjs');
-const path     = require('path');
-const fs       = require('fs');
+const express        = require('express');
+const session        = require('express-session');
+const multer         = require('multer');
+const bcrypt         = require('bcryptjs');
+const path           = require('path');
+const admin          = require('firebase-admin');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Ensure directories exist (safe for serverless read-only FS) ─────────────
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-const DATA_FILE   = path.join(__dirname, 'data', 'content.json');
+// ─── Firebase init ────────────────────────────────────────────────────────────
+// On Vercel: set FIREBASE_SERVICE_ACCOUNT env var to the JSON string of your
+// service account key. Set FIREBASE_STORAGE_BUCKET to e.g. your-project.appspot.com
+if (!admin.apps.length) {
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    : null;
+  if (serviceAccount) {
+    admin.initializeApp({
+      credential:    admin.credential.cert(serviceAccount),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+    });
+  } else {
+    admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '' });
+  }
+}
 
-[UPLOADS_DIR, path.join(__dirname, 'data')].forEach(dir => {
-  try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); }
-  catch (_) { /* read-only FS on serverless — uploads/data won't persist anyway */ }
-});
+const db     = admin.firestore();
+const bucket = admin.storage().bucket();
+const CONTENT_DOC = db.collection('site').doc('content');
 
 // ─── Default content ─────────────────────────────────────────────────────────
 const DEFAULT_CONTENT = {
@@ -38,14 +53,19 @@ const DEFAULT_CONTENT = {
   pdfs:             []
 };
 
-function readContent() {
-  if (!fs.existsSync(DATA_FILE)) { writeContent(DEFAULT_CONTENT); return { ...DEFAULT_CONTENT }; }
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch { return { ...DEFAULT_CONTENT }; }
+async function readContent() {
+  try {
+    const snap = await CONTENT_DOC.get();
+    if (!snap.exists) { await CONTENT_DOC.set(DEFAULT_CONTENT); return { ...DEFAULT_CONTENT }; }
+    return { ...DEFAULT_CONTENT, ...snap.data() };
+  } catch (e) {
+    console.error('Firestore read error:', e.message);
+    return { ...DEFAULT_CONTENT };
+  }
 }
 
-function writeContent(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+async function writeContent(data) {
+  await CONTENT_DOC.set(data, { merge: true });
 }
 
 // ─── Admin credentials ───────────────────────────────────────────────────────
@@ -53,17 +73,11 @@ const ADMIN_USER      = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH ||
   bcrypt.hashSync(process.env.ADMIN_PASS || 'nemom2026', 10);
 
-// ─── Multer: wrap callback in Promise ───────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename:    (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1e6) + ext);
-  }
-});
+// ─── Multer: memory storage (buffer → Firebase Storage) ──────────────────────
+const memStorage = multer.memoryStorage();
 
 function makeUpload(options) {
-  const upload = multer({ storage, ...options });
+  const upload = multer({ storage: memStorage, ...options });
   return (fieldName) => (req, res) => new Promise((resolve, reject) => {
     upload.single(fieldName)(req, res, (err) => { if (err) reject(err); else resolve(); });
   });
@@ -100,6 +114,24 @@ const audioUpload = makeUpload({
       ? cb(null, true) : cb(new Error('Only audio files allowed (MP3, WAV, OGG, AAC)'));
   }
 });
+
+// ─── Firebase Storage helpers ─────────────────────────────────────────────────
+async function uploadToFirebase(file, folder) {
+  const ext      = path.extname(file.originalname).toLowerCase();
+  const filename = `${folder}/${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
+  const blob     = bucket.file(filename);
+  await blob.save(file.buffer, { metadata: { contentType: file.mimetype }, public: true });
+  const url = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+  return { url, filename };
+}
+
+async function deleteFromFirebase(url) {
+  if (!url || !url.includes('storage.googleapis.com')) return;
+  try {
+    const match = url.match(/storage\.googleapis\.com\/[^/]+\/(.+)/);
+    if (match) await bucket.file(decodeURIComponent(match[1])).delete();
+  } catch (_) { /* file may already be gone */ }
+}
 
 // ─── Core middleware ─────────────────────────────────────────────────────────
 app.use(express.json());
@@ -160,44 +192,48 @@ app.get(['/admin', '/admin/', '/admin/index.html'], requireAuth, (_req, res) => 
 });
 
 // ─── Public API ───────────────────────────────────────────────────────────────
-app.get('/api/content', (_req, res) => res.json(readContent()));
+app.get('/api/content', async (_req, res) => {
+  res.json(await readContent());
+});
 
 // ─── Admin API ────────────────────────────────────────────────────────────────
 
-app.post('/api/content/texts', requireAuth, (req, res) => {
-  const content = readContent();
-  ['bannerHeadline','bannerSubtext','manifestoTitle','manifestoSub',
-   'manifestoCtaText','aboutTitle','aboutText','footerAboutText'].forEach(f => {
-    if (req.body[f] !== undefined) content[f] = req.body[f];
-  });
-  writeContent(content);
-  res.json({ ok: true });
+app.post('/api/content/texts', requireAuth, async (req, res) => {
+  try {
+    const content = await readContent();
+    ['bannerHeadline','bannerSubtext','manifestoTitle','manifestoSub',
+     'manifestoCtaText','aboutTitle','aboutText','footerAboutText'].forEach(f => {
+      if (req.body[f] !== undefined) content[f] = req.body[f];
+    });
+    await writeContent(content);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
-app.post('/api/content/social', requireAuth, (req, res) => {
-  const content = readContent();
-  content.socialLinks = {
-    facebook:  req.body.facebook  || '',
-    twitter:   req.body.twitter   || '',
-    youtube:   req.body.youtube   || '',
-    instagram: req.body.instagram || ''
-  };
-  writeContent(content);
-  res.json({ ok: true });
+app.post('/api/content/social', requireAuth, async (req, res) => {
+  try {
+    const content = await readContent();
+    content.socialLinks = {
+      facebook:  req.body.facebook  || '',
+      twitter:   req.body.twitter   || '',
+      youtube:   req.body.youtube   || '',
+      instagram: req.body.instagram || ''
+    };
+    await writeContent(content);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
 app.post('/api/upload/video', requireAuth, async (req, res) => {
   try {
     await videoUpload('video')(req, res);
     if (!req.file) return res.status(400).json({ ok: false, message: 'No video file received' });
-    const content = readContent();
-    if (content.bannerVideoUrl && content.bannerVideoUrl.startsWith('/uploads/')) {
-      const old = path.join(__dirname, 'public', content.bannerVideoUrl);
-      if (fs.existsSync(old)) fs.unlink(old, () => {});
-    }
-    content.bannerVideoUrl = '/uploads/' + req.file.filename;
-    writeContent(content);
-    res.json({ ok: true, url: content.bannerVideoUrl });
+    const content = await readContent();
+    await deleteFromFirebase(content.bannerVideoUrl);
+    const { url } = await uploadToFirebase(req.file, 'videos');
+    content.bannerVideoUrl = url;
+    await writeContent(content);
+    res.json({ ok: true, url });
   } catch (err) {
     console.error('Video upload error:', err.message);
     res.status(400).json({ ok: false, message: err.message });
@@ -208,14 +244,12 @@ app.post('/api/upload/logo', requireAuth, async (req, res) => {
   try {
     await imageUpload('logo')(req, res);
     if (!req.file) return res.status(400).json({ ok: false, message: 'No image file received' });
-    const content = readContent();
-    if (content.logoUrl && content.logoUrl.startsWith('/uploads/')) {
-      const old = path.join(__dirname, 'public', content.logoUrl);
-      if (fs.existsSync(old)) fs.unlink(old, () => {});
-    }
-    content.logoUrl = '/uploads/' + req.file.filename;
-    writeContent(content);
-    res.json({ ok: true, url: content.logoUrl });
+    const content = await readContent();
+    await deleteFromFirebase(content.logoUrl);
+    const { url } = await uploadToFirebase(req.file, 'logos');
+    content.logoUrl = url;
+    await writeContent(content);
+    res.json({ ok: true, url });
   } catch (err) {
     console.error('Logo upload error:', err.message);
     res.status(400).json({ ok: false, message: err.message });
@@ -226,14 +260,12 @@ app.post('/api/upload/audio', requireAuth, async (req, res) => {
   try {
     await audioUpload('audio')(req, res);
     if (!req.file) return res.status(400).json({ ok: false, message: 'No audio file received' });
-    const content = readContent();
-    if (content.bgAudioUrl && content.bgAudioUrl.startsWith('/uploads/')) {
-      const old = path.join(__dirname, 'public', content.bgAudioUrl);
-      if (fs.existsSync(old)) fs.unlink(old, () => {});
-    }
-    content.bgAudioUrl = '/uploads/' + req.file.filename;
-    writeContent(content);
-    res.json({ ok: true, url: content.bgAudioUrl });
+    const content = await readContent();
+    await deleteFromFirebase(content.bgAudioUrl);
+    const { url } = await uploadToFirebase(req.file, 'audio');
+    content.bgAudioUrl = url;
+    await writeContent(content);
+    res.json({ ok: true, url });
   } catch (err) {
     console.error('Audio upload error:', err.message);
     res.status(400).json({ ok: false, message: err.message });
@@ -245,29 +277,29 @@ app.post('/api/upload/pdf', requireAuth, async (req, res) => {
     await pdfUpload('pdf')(req, res);
     if (!req.file) return res.status(400).json({ ok: false, message: 'No PDF file received' });
     const label   = (req.body.label || 'Manifesto').trim();
-    const content = readContent();
+    const content = await readContent();
     if (!Array.isArray(content.pdfs)) content.pdfs = [];
-    content.pdfs.push({ label, url: '/uploads/' + req.file.filename, uploadedAt: new Date().toISOString() });
-    writeContent(content);
-    res.json({ ok: true, url: '/uploads/' + req.file.filename, label });
+    const { url } = await uploadToFirebase(req.file, 'pdfs');
+    content.pdfs.push({ label, url, uploadedAt: new Date().toISOString() });
+    await writeContent(content);
+    res.json({ ok: true, url, label });
   } catch (err) {
     console.error('PDF upload error:', err.message);
     res.status(400).json({ ok: false, message: err.message });
   }
 });
 
-app.delete('/api/content/pdf/:idx', requireAuth, (req, res) => {
-  const idx = parseInt(req.params.idx, 10);
-  const content = readContent();
-  if (!Array.isArray(content.pdfs) || isNaN(idx) || idx < 0 || idx >= content.pdfs.length)
-    return res.status(404).json({ ok: false, message: 'PDF not found' });
-  const [removed] = content.pdfs.splice(idx, 1);
-  if (removed.url && removed.url.startsWith('/uploads/')) {
-    const fp = path.join(__dirname, 'public', removed.url);
-    if (fs.existsSync(fp)) fs.unlink(fp, () => {});
-  }
-  writeContent(content);
-  res.json({ ok: true });
+app.delete('/api/content/pdf/:idx', requireAuth, async (req, res) => {
+  try {
+    const idx = parseInt(req.params.idx, 10);
+    const content = await readContent();
+    if (!Array.isArray(content.pdfs) || isNaN(idx) || idx < 0 || idx >= content.pdfs.length)
+      return res.status(404).json({ ok: false, message: 'PDF not found' });
+    const [removed] = content.pdfs.splice(idx, 1);
+    await deleteFromFirebase(removed.url);
+    await writeContent(content);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
 // ─── Catch-all ────────────────────────────────────────────────────────────────
