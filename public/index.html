@@ -96,9 +96,15 @@
           <!-- Tab row (only shows when >1 PDF) -->
           <div class="pdf-tab-row" id="pdfTabRow" style="display:none;"></div>
 
-          <!-- Top bar: title + download -->
+          <!-- Top bar: title + zoom controls + download -->
           <div class="manifesto-bar">
             <span class="manifesto-bar-title" id="manifestoBarTitle"></span>
+            <div class="pdf-zoom-controls">
+              <button class="pdf-zoom-btn" id="pdfZoomOut" title="Zoom out">−</button>
+              <span class="pdf-zoom-label" id="pdfZoomLabel">100%</span>
+              <button class="pdf-zoom-btn" id="pdfZoomIn" title="Zoom in">+</button>
+              <button class="pdf-zoom-btn pdf-fit-btn" id="pdfZoomFit" title="Fit width">⤢</button>
+            </div>
             <a class="manifesto-dl-btn" id="manifestoDlBtn" href="#" download title="Download PDF">
               <i class="fa fa-download"></i> Download
             </a>
@@ -108,7 +114,7 @@
           <div class="manifesto-frame-wrap" id="manifestoFrameWrap"></div>
 
           <!-- Mobile hint -->
-          <p class="manifesto-hint">Scroll down to read all pages &nbsp;·&nbsp; Pinch to zoom</p>
+          <p class="manifesto-hint">Scroll to read all pages &nbsp;·&nbsp; Use + / − to zoom &nbsp;·&nbsp; Pinch to zoom</p>
         </div>
 
         <div id="pdfNoDocMsg" style="color:#64748b;padding:30px 0;display:none;">No documents uploaded yet.</div>

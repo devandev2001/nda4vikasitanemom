@@ -153,8 +153,66 @@ document.querySelectorAll('.mobile-menu a').forEach(a =>
    Works on every browser including iOS Safari & Android Chrome
    ───────────────────────────────────────────────────────── */
 
-var _pdfDoc = null;
-var _pdfUrl = null;
+var _pdfDoc      = null;
+var _pdfUrl      = null;
+var _pdfZoom     = 1.8;   // default zoom — readable text on mobile (1.0 = fit-width)
+var _fitZoom     = 1.0;   // calculated fit-width zoom, stored after first page
+var _renderTimer = null;
+
+/* Re-render all pages at current _pdfZoom */
+function _renderAllPages(pdf, wrap, zoomOverride) {
+  var zoom      = (zoomOverride !== undefined) ? zoomOverride : _pdfZoom;
+  var dpr       = Math.min(window.devicePixelRatio || 1, 3);
+  var wrapWidth = wrap.clientWidth || window.innerWidth || 360;
+  var viewport1 = null; // will be set from page 1
+
+  // Calculate fit-width zoom from page 1
+  pdf.getPage(1).then(function(p1) {
+    var vp = p1.getViewport({ scale: 1 });
+    _fitZoom  = (wrapWidth - 8) / vp.width;
+    var cssScale = zoom < 0 ? _fitZoom : zoom; // zoom=-1 means fit
+
+    // Update zoom label
+    var label = document.getElementById('pdfZoomLabel');
+    if (label) label.textContent = Math.round(cssScale * 100) + '%';
+
+    var container = document.createElement('div');
+    container.className = 'pdf-canvas-container';
+    wrap.innerHTML = '';
+    wrap.appendChild(container);
+
+    var renderPage = function(num) {
+      pdf.getPage(num).then(function(page) {
+        var vp          = page.getViewport({ scale: 1 });
+        var renderScale = cssScale * dpr;
+        var scaled      = page.getViewport({ scale: renderScale });
+        var cssW        = Math.round(scaled.width  / dpr);
+        var cssH        = Math.round(scaled.height / dpr);
+
+        var pageDiv = document.createElement('div');
+        pageDiv.className    = 'pdf-page-wrap';
+        pageDiv.style.width  = cssW + 'px';
+
+        var canvas          = document.createElement('canvas');
+        canvas.width        = Math.floor(scaled.width);
+        canvas.height       = Math.floor(scaled.height);
+        canvas.style.width  = cssW + 'px';
+        canvas.style.height = cssH + 'px';
+        canvas.style.display = 'block';
+
+        pageDiv.appendChild(canvas);
+        container.appendChild(pageDiv);
+
+        page.render({ canvasContext: canvas.getContext('2d'), viewport: scaled })
+          .promise.then(function() {
+            if (num < pdf.numPages) renderPage(num + 1);
+          });
+      });
+    };
+
+    renderPage(1);
+  });
+}
 
 window.loadInlinePdf = function (url, label) {
   var viewer  = document.getElementById('manifestoViewer');
@@ -172,69 +230,57 @@ window.loadInlinePdf = function (url, label) {
   var tab = document.querySelector('.pdf-tab-btn[data-url="' + url + '"]');
   if (tab) tab.classList.add('active');
 
-  if (_pdfUrl === url && _pdfDoc) return; // already loaded
+  // Set default zoom: on mobile use 1.8× (readable), on desktop use fit-width (-1)
+  var isMobile = window.innerWidth < 768;
+  _pdfZoom = isMobile ? 1.8 : -1;
+
+  if (_pdfUrl === url && _pdfDoc) {
+    _renderAllPages(_pdfDoc, wrap);
+    return;
+  }
   _pdfUrl = url;
 
   // Show spinner
   wrap.innerHTML =
     '<div class="pdf-loading"><div class="pdf-spinner"></div><span>Loading…</span></div>';
 
-  // PDF.js: render all pages as canvases into a scrollable container
   var pdfjsLib = window['pdfjs-dist/build/pdf'];
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.js';
 
   pdfjsLib.getDocument({ url: url, withCredentials: false }).promise.then(function(pdf) {
     _pdfDoc = pdf;
-    var totalPages = pdf.numPages;
+    _renderAllPages(pdf, wrap);
 
-    // Build scrollable canvas container
-    var container = document.createElement('div');
-    container.className = 'pdf-canvas-container';
+    // Wire zoom buttons (only once)
+    var btnOut = document.getElementById('pdfZoomOut');
+    var btnIn  = document.getElementById('pdfZoomIn');
+    var btnFit = document.getElementById('pdfZoomFit');
 
-    wrap.innerHTML = '';
-    wrap.appendChild(container);
+    function applyZoom(newZoom) {
+      _pdfZoom = newZoom;
+      wrap.innerHTML = '<div class="pdf-loading"><div class="pdf-spinner"></div><span>Re-rendering…</span></div>';
+      clearTimeout(_renderTimer);
+      _renderTimer = setTimeout(function() { _renderAllPages(pdf, wrap); }, 50);
+    }
 
-    // Render all pages — always fit to container width, sharp on all screens
-    var renderPage = function(num) {
-      pdf.getPage(num).then(function(page) {
-        var dpr       = Math.min(window.devicePixelRatio || 1, 3); // cap at 3×
-        // Re-read width each time (in case of resize / first paint)
-        var wrapWidth = wrap.clientWidth || window.innerWidth || 360;
-        var viewport  = page.getViewport({ scale: 1 });
-
-        // Always fill the container width exactly — no horizontal scroll needed
-        var cssScale    = (wrapWidth - 4) / viewport.width;
-        // Render at physical pixel resolution for crisp Retina/AMOLED text
-        var renderScale = cssScale * dpr;
-        var scaled      = page.getViewport({ scale: renderScale });
-
-        // CSS display dimensions (logical pixels — same as container width)
-        var cssW = Math.round(cssScale * viewport.width);
-        var cssH = Math.round(cssScale * viewport.height);
-
-        var pageDiv = document.createElement('div');
-        pageDiv.className = 'pdf-page-wrap';
-        pageDiv.style.width = '100%';
-
-        var canvas = document.createElement('canvas');
-        canvas.width        = Math.floor(scaled.width);   // physical pixels (HiDPI)
-        canvas.height       = Math.floor(scaled.height);
-        canvas.style.width  = '100%';                     // fill the page div
-        canvas.style.height = cssH + 'px';
-        canvas.style.display = 'block';
-
-        var ctx = canvas.getContext('2d');
-
-        pageDiv.appendChild(canvas);
-        container.appendChild(pageDiv);
-
-        page.render({ canvasContext: ctx, viewport: scaled }).promise.then(function() {
-          if (num < totalPages) renderPage(num + 1);
-        });
+    if (btnOut && !btnOut._bound) {
+      btnOut._bound = true;
+      btnOut.addEventListener('click', function() {
+        var cur = _pdfZoom < 0 ? _fitZoom : _pdfZoom;
+        applyZoom(Math.max(0.5, parseFloat((cur - 0.25).toFixed(2))));
       });
-    };
-
-    renderPage(1);
+    }
+    if (btnIn && !btnIn._bound) {
+      btnIn._bound = true;
+      btnIn.addEventListener('click', function() {
+        var cur = _pdfZoom < 0 ? _fitZoom : _pdfZoom;
+        applyZoom(Math.min(4.0, parseFloat((cur + 0.25).toFixed(2))));
+      });
+    }
+    if (btnFit && !btnFit._bound) {
+      btnFit._bound = true;
+      btnFit.addEventListener('click', function() { applyZoom(-1); });
+    }
 
   }).catch(function(err) {
     console.error('PDF.js error:', err);
