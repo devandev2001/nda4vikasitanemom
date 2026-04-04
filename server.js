@@ -208,11 +208,27 @@ app.get('/api/content', async (_req, res) => {
 });
 
 // ─── Save URL endpoints (for direct Firebase browser uploads) ─────────────────
-// Browser uploads file directly to Firebase Storage, then calls these to save the URL
+// Browser uploads file directly to Firebase Storage, then calls these to save the URL.
+// We also call makePublic() here using the Admin SDK so the file is publicly readable.
+
+async function makeFilePublic(url) {
+  try {
+    // Extract the file path from the storage.googleapis.com URL
+    const match = url.match(/storage\.googleapis\.com\/[^/]+\/(.+?)(\?.*)?$/);
+    if (match) {
+      const filePath = decodeURIComponent(match[1]);
+      await bucket.file(filePath).makePublic();
+    }
+  } catch (e) {
+    console.warn('makePublic warning:', e.message);
+  }
+}
+
 app.post('/api/save/video', requireAuth, async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ ok: false, message: 'No URL provided' });
+    await makeFilePublic(url);
     const content = await readContent();
     content.bannerVideoUrl = url;
     await writeContent(content);
@@ -224,6 +240,7 @@ app.post('/api/save/audio', requireAuth, async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ ok: false, message: 'No URL provided' });
+    await makeFilePublic(url);
     const content = await readContent();
     content.bgAudioUrl = url;
     await writeContent(content);
@@ -235,6 +252,7 @@ app.post('/api/save/pdf', requireAuth, async (req, res) => {
   try {
     const { url, label } = req.body;
     if (!url) return res.status(400).json({ ok: false, message: 'No URL provided' });
+    await makeFilePublic(url);
     const content = await readContent();
     if (!Array.isArray(content.pdfs)) content.pdfs = [];
     content.pdfs.push({ label: (label || 'Manifesto').trim(), url, uploadedAt: new Date().toISOString() });
