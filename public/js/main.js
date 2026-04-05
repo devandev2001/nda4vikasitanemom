@@ -2,16 +2,49 @@
    VIKASITA NEMOM – Main Frontend JS
    ========================================================= */
 
-// ── Preloader: keep visible until content is loaded ──
-function dismissPreloader() {
-  const pre = document.getElementById('preloader');
-  if (!pre) return;
-  pre.style.transition = 'opacity 0.35s';
-  pre.style.opacity = '0';
-  setTimeout(() => { if (pre.parentNode) pre.remove(); }, 380);
+// ── Splash screen: wait for user tap to unlock audio ──
+var _siteData = null;
+
+function dismissSplash() {
+  var splash = document.getElementById('welcomeSplash');
+  if (!splash) return;
+  splash.classList.add('dismissed');
+  setTimeout(function() { if (splash.parentNode) splash.remove(); }, 550);
 }
 
-// Start fetching content immediately — don't wait for window.load
+function startAudioPlayback() {
+  var audio    = document.getElementById('bgAudio');
+  var audioBtn = document.getElementById('audioToggleBtn');
+  if (!audio || !audio.src) return;
+
+  // If user previously muted, don't play
+  if (localStorage.getItem('bgAudioMuted') === '1') {
+    audio.muted = true;
+    audio.pause();
+    if (audioBtn) audioBtn.classList.remove('playing');
+    return;
+  }
+
+  audio.muted  = false;
+  audio.volume = 0.5;
+  audio.play().then(function() {
+    if (audioBtn) audioBtn.classList.add('playing');
+  }).catch(function() {});
+}
+
+// Wire the Enter Site button
+document.addEventListener('DOMContentLoaded', function() {
+  var enterBtn = document.getElementById('enterSiteBtn');
+  if (enterBtn) {
+    enterBtn.addEventListener('click', function() {
+      // This click is the user gesture that unlocks audio
+      startAudioPlayback();
+      dismissSplash();
+    });
+  }
+});
+
+// Start fetching content immediately — don't wait for button tap
 (function init() {
   loadSiteContent();
 })();
@@ -21,13 +54,15 @@ async function loadSiteContent() {
   try {
     const res = await fetch('/api/content');
     const data = await res.json();
+    _siteData = data;
     applySiteContent(data);
+    // Set splash logo from content
+    var splashLogo = document.getElementById('splash-logo');
+    if (splashLogo && data.logoUrl) splashLogo.src = data.logoUrl;
   } catch (e) {
     console.warn('Could not load dynamic content, using defaults.');
-  } finally {
-    // Always dismiss preloader after content attempt — no flash
-    dismissPreloader();
   }
+  // Splash stays visible until user taps "Enter Site"
 }
 
 function applySiteContent(data) {
@@ -56,85 +91,13 @@ function applySiteContent(data) {
     }
   }
 
-  // Background audio — plays automatically when site opens
-  // Strategy: start muted (browsers allow this), then unmute immediately
+  // Background audio — set up src only; playback starts when user taps "Enter Site"
   const audio    = document.getElementById('bgAudio');
   const audioBtn = document.getElementById('audioToggleBtn');
   if (audio && data.bgAudioUrl) {
     audio.src = data.bgAudioUrl;
+    audio.muted = true; // keep muted until splash tap
     if (audioBtn) audioBtn.style.display = 'flex';
-
-    var userMuted = localStorage.getItem('bgAudioMuted') === '1';
-    var audioStarted = false;
-
-    function markPlaying() {
-      audioStarted = true;
-      if (audioBtn) audioBtn.classList.add('playing');
-      removeAutoplayListeners();
-    }
-
-    function unmuteAndPlay() {
-      if (userMuted || audioStarted) return;
-      // Unmute and set volume
-      audio.muted  = false;
-      audio.volume = 0.5;
-      // Try playing (might already be playing from autoplay muted)
-      var p = audio.play();
-      if (p && p.then) {
-        p.then(markPlaying).catch(function() {
-          // If unmuted play fails, start muted first then unmute
-          audio.muted = true;
-          audio.play().then(function() {
-            // Playing muted — now unmute after a short delay
-            setTimeout(function() {
-              audio.muted  = false;
-              audio.volume = 0.5;
-              markPlaying();
-            }, 100);
-          }).catch(function() {});
-        });
-      }
-    }
-
-    // Listen for ANY gesture to unlock audio
-    var gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown', 'scroll', 'mousemove'];
-    function onGesture() { unmuteAndPlay(); }
-    function addAutoplayListeners() {
-      gestureEvents.forEach(function(e) {
-        document.addEventListener(e, onGesture, { once: true, passive: true });
-      });
-    }
-    function removeAutoplayListeners() {
-      gestureEvents.forEach(function(e) {
-        document.removeEventListener(e, onGesture);
-      });
-    }
-
-    if (userMuted) {
-      audio.muted = true;
-      audio.pause();
-      if (audioBtn) audioBtn.classList.remove('playing');
-    } else {
-      // Step 1: try unmuted play directly
-      audio.muted  = false;
-      audio.volume = 0.5;
-      var playAttempt = audio.play();
-      if (playAttempt && playAttempt.then) {
-        playAttempt.then(markPlaying).catch(function() {
-          // Step 2: play muted (browser allows this), then unmute
-          audio.muted = true;
-          audio.play().then(function() {
-            // Now try unmuting — some browsers allow this
-            audio.muted  = false;
-            audio.volume = 0.5;
-            markPlaying();
-          }).catch(function() {
-            // Step 3: wait for user gesture
-            addAutoplayListeners();
-          });
-        });
-      }
-    }
   }
 
   setEl('manifesto-title',    data.manifestoTitle);
