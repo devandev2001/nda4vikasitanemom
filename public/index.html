@@ -66,8 +66,8 @@
       </video>
       <div class="video-overlay"></div>
 
-      <!-- Background audio (hidden, auto-plays) -->
-      <audio id="bgAudio" loop preload="auto" style="display:none;"></audio>
+      <!-- Background audio — autoplay muted, then unmute (bypasses browser restrictions) -->
+      <audio id="bgAudio" loop preload="auto" muted autoplay style="display:none;"></audio>
 
       <!-- Audio toggle button -->
       <button id="audioToggleBtn" class="audio-btn" title="Toggle Background Music" style="display:none;" onclick="toggleBgAudio()">
@@ -172,6 +172,6 @@
   <button class="back-to-top" id="backToTop" title="Back to top"><i class="fa fa-chevron-up"></i></button>
 
   <script src="/pdfjs/pdf.min.js"></script>
-  <script src="/js/main.js?v=20260405b"></script>
+  <script src="/js/main.js?v=20260405c"></script>
 </body>
 </html>

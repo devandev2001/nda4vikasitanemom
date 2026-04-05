@@ -56,52 +56,84 @@ function applySiteContent(data) {
     }
   }
 
-  // Background audio — auto-play by default, remember user's mute preference
+  // Background audio — plays automatically when site opens
+  // Strategy: start muted (browsers allow this), then unmute immediately
   const audio    = document.getElementById('bgAudio');
   const audioBtn = document.getElementById('audioToggleBtn');
   if (audio && data.bgAudioUrl) {
-    audio.src    = data.bgAudioUrl;
-    audio.volume = 0.5;
+    audio.src = data.bgAudioUrl;
     if (audioBtn) audioBtn.style.display = 'flex';
 
-    // Check if user previously muted
     var userMuted = localStorage.getItem('bgAudioMuted') === '1';
+    var audioStarted = false;
 
-    function tryPlayAudio() {
-      if (localStorage.getItem('bgAudioMuted') === '1') return;
-      audio.play().then(function() {
-        if (audioBtn) audioBtn.classList.add('playing');
-        removeAutoplayListeners();
-      }).catch(function() {});
+    function markPlaying() {
+      audioStarted = true;
+      if (audioBtn) audioBtn.classList.add('playing');
+      removeAutoplayListeners();
     }
 
-    // Listen for ANY user gesture — browsers unlock audio on these events
-    var gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown', 'scroll'];
-    function onFirstGesture() {
-      tryPlayAudio();
+    function unmuteAndPlay() {
+      if (userMuted || audioStarted) return;
+      // Unmute and set volume
+      audio.muted  = false;
+      audio.volume = 0.5;
+      // Try playing (might already be playing from autoplay muted)
+      var p = audio.play();
+      if (p && p.then) {
+        p.then(markPlaying).catch(function() {
+          // If unmuted play fails, start muted first then unmute
+          audio.muted = true;
+          audio.play().then(function() {
+            // Playing muted — now unmute after a short delay
+            setTimeout(function() {
+              audio.muted  = false;
+              audio.volume = 0.5;
+              markPlaying();
+            }, 100);
+          }).catch(function() {});
+        });
+      }
     }
+
+    // Listen for ANY gesture to unlock audio
+    var gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown', 'scroll', 'mousemove'];
+    function onGesture() { unmuteAndPlay(); }
     function addAutoplayListeners() {
-      gestureEvents.forEach(function(evt) {
-        document.addEventListener(evt, onFirstGesture, { once: true, passive: true });
+      gestureEvents.forEach(function(e) {
+        document.addEventListener(e, onGesture, { once: true, passive: true });
       });
     }
     function removeAutoplayListeners() {
-      gestureEvents.forEach(function(evt) {
-        document.removeEventListener(evt, onFirstGesture);
+      gestureEvents.forEach(function(e) {
+        document.removeEventListener(e, onGesture);
       });
     }
 
     if (userMuted) {
-      // User chose to mute — keep it muted, show muted state
+      audio.muted = true;
+      audio.pause();
       if (audioBtn) audioBtn.classList.remove('playing');
     } else {
-      // Try autoplay immediately
-      audio.play().then(function() {
-        if (audioBtn) audioBtn.classList.add('playing');
-      }).catch(function() {
-        // Browser blocked — wait for first user gesture
-        addAutoplayListeners();
-      });
+      // Step 1: try unmuted play directly
+      audio.muted  = false;
+      audio.volume = 0.5;
+      var playAttempt = audio.play();
+      if (playAttempt && playAttempt.then) {
+        playAttempt.then(markPlaying).catch(function() {
+          // Step 2: play muted (browser allows this), then unmute
+          audio.muted = true;
+          audio.play().then(function() {
+            // Now try unmuting — some browsers allow this
+            audio.muted  = false;
+            audio.volume = 0.5;
+            markPlaying();
+          }).catch(function() {
+            // Step 3: wait for user gesture
+            addAutoplayListeners();
+          });
+        });
+      }
     }
   }
 
