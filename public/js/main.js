@@ -2,49 +2,49 @@
    VIKASITA NEMOM – Main Frontend JS
    ========================================================= */
 
-// ── Splash screen: wait for user tap to unlock audio ──
-var _siteData = null;
-
-function dismissSplash() {
-  var splash = document.getElementById('welcomeSplash');
-  if (!splash) return;
-  splash.classList.add('dismissed');
-  setTimeout(function() { if (splash.parentNode) splash.remove(); }, 550);
+// ── Preloader ──
+function dismissPreloader() {
+  var pre = document.getElementById('preloader');
+  if (!pre) return;
+  pre.style.transition = 'opacity 0.35s';
+  pre.style.opacity = '0';
+  setTimeout(function() { if (pre.parentNode) pre.remove(); }, 380);
 }
 
+// ── Audio: play on first user gesture (scroll/touch/click) ──
+var _audioReady = false;
+
 function startAudioPlayback() {
+  if (_audioReady) return;
   var audio    = document.getElementById('bgAudio');
   var audioBtn = document.getElementById('audioToggleBtn');
   if (!audio || !audio.src) return;
-
-  // If user previously muted, don't play
   if (localStorage.getItem('bgAudioMuted') === '1') {
-    audio.muted = true;
-    audio.pause();
     if (audioBtn) audioBtn.classList.remove('playing');
     return;
   }
-
   audio.muted  = false;
   audio.volume = 0.5;
   audio.play().then(function() {
+    _audioReady = true;
     if (audioBtn) audioBtn.classList.add('playing');
+    removeGestureListeners();
   }).catch(function() {});
 }
 
-// Wire the Enter Site button
-document.addEventListener('DOMContentLoaded', function() {
-  var enterBtn = document.getElementById('enterSiteBtn');
-  if (enterBtn) {
-    enterBtn.addEventListener('click', function() {
-      // This click is the user gesture that unlocks audio
-      startAudioPlayback();
-      dismissSplash();
-    });
-  }
-});
+var _gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'scroll', 'keydown'];
+function addGestureListeners() {
+  _gestureEvents.forEach(function(e) {
+    document.addEventListener(e, startAudioPlayback, { once: true, passive: true });
+  });
+}
+function removeGestureListeners() {
+  _gestureEvents.forEach(function(e) {
+    document.removeEventListener(e, startAudioPlayback);
+  });
+}
 
-// Start fetching content immediately — don't wait for button tap
+// Start fetching content immediately
 (function init() {
   loadSiteContent();
 })();
@@ -54,15 +54,12 @@ async function loadSiteContent() {
   try {
     const res = await fetch('/api/content');
     const data = await res.json();
-    _siteData = data;
     applySiteContent(data);
-    // Set splash logo from content
-    var splashLogo = document.getElementById('splash-logo');
-    if (splashLogo && data.logoUrl) splashLogo.src = data.logoUrl;
   } catch (e) {
     console.warn('Could not load dynamic content, using defaults.');
+  } finally {
+    dismissPreloader();
   }
-  // Splash stays visible until user taps "Enter Site"
 }
 
 function applySiteContent(data) {
@@ -91,13 +88,16 @@ function applySiteContent(data) {
     }
   }
 
-  // Background audio — set up src only; playback starts when user taps "Enter Site"
+  // Background audio — set src, play starts on first user gesture
   const audio    = document.getElementById('bgAudio');
   const audioBtn = document.getElementById('audioToggleBtn');
   if (audio && data.bgAudioUrl) {
     audio.src = data.bgAudioUrl;
-    audio.muted = true; // keep muted until splash tap
     if (audioBtn) audioBtn.style.display = 'flex';
+    // Try autoplay immediately (works if user has interacted with site before)
+    startAudioPlayback();
+    // Also listen for first gesture as fallback
+    addGestureListeners();
   }
 
   setEl('manifesto-title',    data.manifestoTitle);
