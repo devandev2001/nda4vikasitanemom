@@ -67,23 +67,41 @@ function applySiteContent(data) {
     // Check if user previously muted
     var userMuted = localStorage.getItem('bgAudioMuted') === '1';
 
+    function tryPlayAudio() {
+      if (localStorage.getItem('bgAudioMuted') === '1') return;
+      audio.play().then(function() {
+        if (audioBtn) audioBtn.classList.add('playing');
+        removeAutoplayListeners();
+      }).catch(function() {});
+    }
+
+    // Listen for ANY user gesture — browsers unlock audio on these events
+    var gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown', 'scroll'];
+    function onFirstGesture() {
+      tryPlayAudio();
+    }
+    function addAutoplayListeners() {
+      gestureEvents.forEach(function(evt) {
+        document.addEventListener(evt, onFirstGesture, { once: true, passive: true });
+      });
+    }
+    function removeAutoplayListeners() {
+      gestureEvents.forEach(function(evt) {
+        document.removeEventListener(evt, onFirstGesture);
+      });
+    }
+
     if (userMuted) {
       // User chose to mute — keep it muted, show muted state
-      audio.pause();
       if (audioBtn) audioBtn.classList.remove('playing');
     } else {
-      // Auto-play audio
-      audio.play()
-        .then(() => { if (audioBtn) audioBtn.classList.add('playing'); })
-        .catch(() => {
-          // Browser blocked autoplay — play on first user interaction
-          document.addEventListener('click', function startAudio() {
-            if (localStorage.getItem('bgAudioMuted') !== '1') {
-              audio.play().then(() => { if (audioBtn) audioBtn.classList.add('playing'); }).catch(() => {});
-            }
-            document.removeEventListener('click', startAudio);
-          }, { once: true });
-        });
+      // Try autoplay immediately
+      audio.play().then(function() {
+        if (audioBtn) audioBtn.classList.add('playing');
+      }).catch(function() {
+        // Browser blocked — wait for first user gesture
+        addAutoplayListeners();
+      });
     }
   }
 
