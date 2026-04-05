@@ -56,21 +56,35 @@ function applySiteContent(data) {
     }
   }
 
-  // Background audio
+  // Background audio — auto-play by default, remember user's mute preference
   const audio    = document.getElementById('bgAudio');
   const audioBtn = document.getElementById('audioToggleBtn');
   if (audio && data.bgAudioUrl) {
     audio.src    = data.bgAudioUrl;
     audio.volume = 0.5;
     if (audioBtn) audioBtn.style.display = 'flex';
-    audio.play()
-      .then(() => { if (audioBtn) audioBtn.classList.add('playing'); })
-      .catch(() => {
-        document.addEventListener('click', function startAudio() {
-          audio.play().then(() => { if (audioBtn) audioBtn.classList.add('playing'); }).catch(() => {});
-          document.removeEventListener('click', startAudio);
-        }, { once: true });
-      });
+
+    // Check if user previously muted
+    var userMuted = localStorage.getItem('bgAudioMuted') === '1';
+
+    if (userMuted) {
+      // User chose to mute — keep it muted, show muted state
+      audio.pause();
+      if (audioBtn) audioBtn.classList.remove('playing');
+    } else {
+      // Auto-play audio
+      audio.play()
+        .then(() => { if (audioBtn) audioBtn.classList.add('playing'); })
+        .catch(() => {
+          // Browser blocked autoplay — play on first user interaction
+          document.addEventListener('click', function startAudio() {
+            if (localStorage.getItem('bgAudioMuted') !== '1') {
+              audio.play().then(() => { if (audioBtn) audioBtn.classList.add('playing'); }).catch(() => {});
+            }
+            document.removeEventListener('click', startAudio);
+          }, { once: true });
+        });
+    }
   }
 
   setEl('manifesto-title',    data.manifestoTitle);
@@ -120,9 +134,11 @@ window.toggleBgAudio = function () {
   if (!audio) return;
   if (audio.paused) {
     audio.play().then(() => { if (btn) btn.classList.add('playing'); }).catch(() => {});
+    localStorage.setItem('bgAudioMuted', '0');
   } else {
     audio.pause();
     if (btn) btn.classList.remove('playing');
+    localStorage.setItem('bgAudioMuted', '1');
   }
 };
 
