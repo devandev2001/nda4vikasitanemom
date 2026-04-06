@@ -11,8 +11,12 @@ function dismissPreloader() {
   setTimeout(function() { if (pre.parentNode) pre.remove(); }, 380);
 }
 
-// ── Audio: play on first user gesture (scroll/touch/click) ──
+// ── Audio: autoplay using Web Audio API trick ──
+// Strategy: play <audio> muted (browser allows), route through Web Audio API
+// with gain = 1 to make it audible. Browsers don't block Web Audio gain.
 var _audioReady = false;
+var _audioCtx   = null;
+var _gainNode   = null;
 
 function startAudioPlayback() {
   if (_audioReady) return;
@@ -21,15 +25,48 @@ function startAudioPlayback() {
   if (!audio || !audio.src) return;
   if (localStorage.getItem('bgAudioMuted') === '1') {
     if (audioBtn) audioBtn.classList.remove('playing');
+    removeGestureListeners();
     return;
   }
+
+  // Method 1: Web Audio API — play muted element, amplify via gain node
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var source = _audioCtx.createMediaElementSource(audio);
+      _gainNode  = _audioCtx.createGain();
+      _gainNode.gain.value = 1.0;
+      source.connect(_gainNode);
+      _gainNode.connect(_audioCtx.destination);
+    }
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    audio.muted  = true;   // keep muted for browser — Web Audio handles volume
+    audio.volume = 1.0;    // max into Web Audio pipeline
+    audio.play().then(function() {
+      _audioReady = true;
+      if (audioBtn) audioBtn.classList.add('playing');
+      removeGestureListeners();
+    }).catch(function() {
+      // Web Audio play failed — fall back to Method 2
+      tryDirectPlay(audio, audioBtn);
+    });
+  } catch (e) {
+    // Web Audio not supported — fall back to Method 2
+    tryDirectPlay(audio, audioBtn);
+  }
+}
+
+// Method 2: Direct play (needs user gesture)
+function tryDirectPlay(audio, audioBtn) {
   audio.muted  = false;
   audio.volume = 0.5;
   audio.play().then(function() {
     _audioReady = true;
     if (audioBtn) audioBtn.classList.add('playing');
     removeGestureListeners();
-  }).catch(function() {});
+  }).catch(function() {
+    // Will retry on gesture
+  });
 }
 
 var _gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'scroll', 'keydown'];
@@ -145,10 +182,21 @@ window.toggleBgAudio = function () {
   const audio = document.getElementById('bgAudio');
   const btn   = document.getElementById('audioToggleBtn');
   if (!audio) return;
-  if (audio.paused) {
-    audio.play().then(() => { if (btn) btn.classList.add('playing'); }).catch(() => {});
+
+  if (audio.paused || localStorage.getItem('bgAudioMuted') === '1') {
+    // Unmute / play
     localStorage.setItem('bgAudioMuted', '0');
+    if (_gainNode) _gainNode.gain.value = 1.0;
+    if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
+    audio.muted = _audioCtx ? true : false; // muted if using Web Audio pipeline
+    audio.volume = _audioCtx ? 1.0 : 0.5;
+    audio.play().then(function() {
+      _audioReady = true;
+      if (btn) btn.classList.add('playing');
+    }).catch(function() {});
   } else {
+    // Mute / pause
+    if (_gainNode) _gainNode.gain.value = 0;
     audio.pause();
     if (btn) btn.classList.remove('playing');
     localStorage.setItem('bgAudioMuted', '1');
